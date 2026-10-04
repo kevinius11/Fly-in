@@ -116,7 +116,25 @@ class MapParser:
             line: str,
             line_num: int
     ) -> tuple[str, str | None]:
-        """"""
+        """
+        Extract the statement prefix and optional metadata block.
+
+        Metadata must appear inside a single pair of square brackets
+        at the end of the line. The method validates bracket structure
+        before returning the separated components.
+
+        Args:
+            line: Normalized input line to inspect.
+            line_num: Original line number used for error reporting.
+
+        Returns:
+            A tuple containing the statement prefix and metadata content.
+            The metadata value is None when no metadata block is present.
+
+        Raises:
+            ParsingError: If the metadata brackets are malformed, repeated,
+                misplaced, or empty.
+        """
         has_open = "[" in line
         has_close = "]" in line
 
@@ -161,7 +179,24 @@ class MapParser:
             raw_metadata: str | None,
             line_num: int
     ) -> dict[str, str]:
-        """"""
+        """
+        Parse metadata tokens into a key-value dictionary.
+
+        Each metadata token must follow the 'key=value' format.
+        Keys must be unique and both keys and values must be non-empty.
+
+        Args:
+            raw_metadata: Metadata content extracted from a square brackets,
+                or None when the line has no metadata.
+            line_num: Original line number used for error reporting.
+
+        Returns:
+            A dictionary mapping metadata keys to their string valuese.
+
+        Raises:
+            ParsingError: If a metadata token is malformed, empty, or
+                duplicated.
+        """
         if not raw_metadata:
             return {}
 
@@ -188,14 +223,33 @@ class MapParser:
         return result
 
     def _parse_line(self, line: str, line_num: int) -> None:
-        """"""
+        """
+        Parse one normalized line according to its statement keyword.
+
+        The method extracts metadata, identifies the statement keyword,
+        validates the current parser state, and delegates detailed parsing
+        to the corresponding specialized method.
+
+        Args:
+            line: Normalized non-empty input line.
+            line_num: Original line number used for error reporting.
+
+        Returns:
+            None
+
+        Raises:
+            ParsingError: If the line syntax is invalid, the keyword is
+                unknown, or the statement is not valid in the current
+                parser state.
+        """
         prefix, raw_metadata = self._extract_metadata_str(line, line_num)
         kv = self._parse_metadata_kv(raw_metadata, line_num)
 
         if ":" not in prefix:
             raise ParsingError(
                 line_num,
-                f"Malformed line syntax: '{prefix}'. Missing ':' keyword separator"
+                f"Malformed line syntax: '{prefix}'. "
+                "Missing ':' keyword separator"
             )
 
         keyword, body = prefix.split(":", 1)
@@ -211,7 +265,7 @@ class MapParser:
             self._state = ParserState.ZONES
 
         elif keyword in ("start_hub", "end_hub", "hub"):
-            if self._state ==  ParserState.HEADER:
+            if self._state == ParserState.HEADER:
                 raise ParsingError(
                     line_num,
                     "'nb_drones' header must be defined before any zones."
@@ -236,4 +290,249 @@ class MapParser:
             raise ParsingError(
                 line_num,
                 f"Unknown statement keyword '{keyword}'."
+            )
+
+    def _parse_nb_drones(
+            self,
+            body: str,
+            kv: dict[str, str],
+            line_num: int
+    ) -> None:
+        """
+        Parse and validate the number of drones declaration.
+
+        The declaration must contain a single positive integer and
+        cannot contain metadata. The parsed value is stored in the
+        parser state.
+
+        Args:
+            body: Text appearing after the 'nb_drones:' keyword.
+            kv: Metadata key-value pairs extracted from the current line.
+            line_num: Original line number used for error reporting.
+
+        Returns:
+            None
+
+        Raises:
+            ParsingError: If the declaration is duplicated, contains
+                metadata, has no value, or does not contain a positive
+                integer.
+        """
+        if self._nb_drones is not None:
+            raise ParsingError(
+                line_num,
+                "Duplicate 'nb_drones' definition."
+            )
+
+        if kv:
+            raise ParsingError(
+                line_num,
+                "'nb_drones' statement cannot have metadata."
+            )
+
+        if not body:
+            raise ParsingError(
+                line_num,
+                "Missing value for 'nb_drones'."
+            )
+
+        if not body.isdigit() or int(body) <= 0:
+            raise ParsingError(
+                line_num,
+                f"'nb_drones' must be a positive integer, got {body}"
+            )
+
+        self._nb_drones = int(body)
+
+    def _parse_zone(
+            self,
+            keyword: str,
+            body: str,
+            kv: dict[str, str],
+            line_num: int
+    ) -> None:
+        """"""
+        tokens = body.split()
+        if len(tokens) != 3:
+            raise ParsingError(
+                line_num,
+                f"Zone definition requires '<name> <x> <y>', got {body}"
+            )
+
+        name, x_str, y_str = tokens[0], tokens[1], tokens[2]
+
+        if "-" in name or " " in name:
+            raise ParsingError(
+                line_num,
+                f"Zone name '{name}' contains forbidden characters "
+                "('-' or spaces)."
+            )
+
+        if name in self._zones:
+            raise ParsingError(
+                line_num,
+                f"Duplicate zone name '{name}'."
+            )
+
+        try:
+            x, y = int(x_str), int(y_str)
+        except ValueError:
+            raise ParsingError(
+                line_num,
+                "Coordinates must be integers, "
+                f"got x='{x_str}' and y='{y_str}'."
+            )
+
+        for k in kv:
+            if k not in ("zone", "color", "max_drones"):
+                raise ParsingError(
+                    line_num,
+                    f"Unknown zone metadata key '{k}'."
+                )
+
+        zone_type = ZoneType.NORMAL
+        if "zone" in kv:
+            try:
+                zone_type = ZoneType(kv["zone"])
+            except ValueError:
+                raise ParsingError(
+                    line_num,
+                    f"Invalid zone type '{kv['zone']}'."
+                )
+
+        max_drones = 1
+        if "max_drones" in kv:
+            if not kv["max_drones"].isdigit() or int(kv["max_drones"]) <= 0:
+                raise ParsingError(
+                    line_num,
+                    "'max_drones' must be a positive integer, "
+                    f"got '{kv['max_drones']}'."
+                )
+
+        color = kv.get("color")
+        is_start = keyword == "start_hub"
+        is_end = keyword == "end_hub"
+
+        if is_start and self._start_hub is not None:
+            raise ParsingError(
+                line_num,
+                "Multiple 'start_hub' zones defined. "
+                "Exactly one is required."
+            )
+
+        if is_end and self._end_hub is not None:
+            raise ParsingError(
+                line_num,
+                "Mutiple 'end_hub' zones defined. "
+                "Exactly one is required."
+            )
+
+        zone = Zone(
+            name=name,
+            x=x,
+            y=y,
+            zone_type=zone_type,
+            max_drones=max_drones,
+            color=color,
+            is_start=is_start,
+            is_end=is_end,
+        )
+
+        self._zones[name] = zone
+        if is_start:
+            self._start_hub = zone
+        if is_end:
+            self._end_hub = zone
+
+    def _parse_connection(
+            self,
+            body: str,
+            kv: dict[str, str],
+            line_num: int
+    ) -> None:
+        """"""
+        if "-" not in body:
+            raise ParsingError(
+                line_num,
+                f"Invalid connection format '{body}'. "
+                "Expected 'zone1-zone2'"
+            )
+
+        parts = body.split("-")
+        if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():
+            raise ParsingError(
+                line_num,
+                f"Invalid connection syntax '{body}'."
+            )
+
+        z1, z2 = parts[0].strip(), parts[1].strip()
+
+        if z1 == z2:
+            raise ParsingError(
+                line_num,
+                f"Self-connection on zone '{z1}' is forbidden."
+            )
+
+        if z1 not in self._zones:
+            raise ParsingError(
+                line_num,
+                f"Connection references undefined zone '{z1}'."
+            )
+
+        if z2 not in self._zones:
+            raise ParsingError(
+                line_num,
+                f"Connection references undefined zone '{z2}'."
+            )
+
+        pair = tuple(sorted((z1, z2)))
+        if pair in self._seen_connection_pairs:
+            raise ParsingError(
+                line_num,
+                f"Duplicate connection between '{z1}' and '{z2}'."
+            )
+
+        for k in kv:
+            if k != "max_link_capacity":
+                raise ParsingError(
+                    line_num,
+                    f"Unknown connection metadata key '{k}'."
+                )
+
+        max_cap = 1
+        if "max_link_capacity" in kv:
+            if (not kv["max_link_capacity"].isdigit()
+               or int(kv["max_link_capacity"]) <= 0):
+                raise ParsingError(
+                    line_num,
+                    "'max_link_capacity' must be positive integer. "
+                    f"got '{kv['max_link_capacity']}'."
+                )
+            max_cap = int(kv["max_link_capacity"])
+
+        self._seen_connection_pairs.add(pair)
+        self._connections.append(Connection(
+            zone_a=z1,
+            zone_b=z2,
+            max_link_capacity=max_cap
+        ))
+
+    def _validate_final_state(self) -> None:
+        """"""
+        if self._nb_drones is None:
+            raise ParsingError(
+                0,
+                "Missing 'nb_drones' header."
+            )
+
+        if self._start_hub is None:
+            raise ParsingError(
+                0,
+                "Missing mandatory 'start_hub' zone."
+            )
+
+        if self._end_hub is None:
+            raise ParsingError(
+                0,
+                "Missing mandatory 'end_hub' zone."
             )
