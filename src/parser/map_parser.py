@@ -351,7 +351,21 @@ class MapParser:
             kv: dict[str, str],
             line_num: int
     ) -> None:
-        """"""
+        """
+        Parse and validate a zone declaration.
+
+        The zone body must contain a name and two integer coordinates.
+        Supported metadata is used to determine the zone type, capacity,
+        and optional color. Start and end hubs are also registered in the
+        parser state.
+
+        Args:
+            keyword: Zone declaration keyword. Expected values are
+                'hub', 'start_hub', or 'end_hub'.
+            body: Text containing the zone name and its X/Y coordinates.
+            kv: Metadata key-value pairs extracted from the current line.
+            line_num: Original line number used for error reporting.
+        """
         tokens = body.split()
         if len(tokens) != 3:
             raise ParsingError(
@@ -450,7 +464,23 @@ class MapParser:
             kv: dict[str, str],
             line_num: int
     ) -> None:
-        """"""
+        """
+        Parse and validate a connection declaration.
+
+        The connection must reference two distinct zones using the
+        'zone1-zone2' format. Both zones must already exist, and the
+        connection must not have been declared previously in either
+        direction. An optional link capacity can be specified through
+        metadata.
+
+        Args:
+            body: Text containing the two connected zone names.
+            kv: Metadata key-value pairs extracted from the current line.
+            line_num: Original line number used for error reporting.
+
+        Returns:
+            None.
+        """
         if "-" not in body:
             raise ParsingError(
                 line_num,
@@ -518,7 +548,21 @@ class MapParser:
         ))
 
     def _validate_final_state(self) -> None:
-        """"""
+        """
+        Validate mandatory elements after parsing the entire map.
+
+        This method verifies that the map contains the required number of
+        drones, exactly one start hub, and exactly one end hub. These checks
+        are performed after all input lines have been processed because
+        their validity depends on the complete map definition.
+
+        Returns:
+            None.
+
+        Raises:
+            ParsingError: If the number of drones, start hub, or end hub
+                declaration is missing.
+        """
         if self._nb_drones is None:
             raise ParsingError(
                 0,
