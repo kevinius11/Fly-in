@@ -37,7 +37,7 @@ class Graph:
         Args:
             map_data: Validated static map containing zones and
                 connections.
-        
+
         Returns:
             None.
         """
