@@ -414,7 +414,11 @@ class MapParser:
                     f"Invalid zone type '{kv['zone']}'."
                 )
 
+        is_start = keyword == "start_hub"
+        is_end = keyword == "end_hub"
+
         max_drones = 1
+
         if "max_drones" in kv:
             if not kv["max_drones"].isdigit() or int(kv["max_drones"]) <= 0:
                 raise ParsingError(
@@ -423,9 +427,10 @@ class MapParser:
                     f"got '{kv['max_drones']}'."
                 )
 
+            if not is_start and not is_end:
+                max_drones = int(kv["max_drones"])
+
         color = kv.get("color")
-        is_start = keyword == "start_hub"
-        is_end = keyword == "end_hub"
 
         if is_start and self._start_hub is not None:
             raise ParsingError(
@@ -437,7 +442,7 @@ class MapParser:
         if is_end and self._end_hub is not None:
             raise ParsingError(
                 line_num,
-                "Mutiple 'end_hub' zones defined. "
+                "Multiple 'end_hub' zones defined. "
                 "Exactly one is required."
             )
 
@@ -515,7 +520,8 @@ class MapParser:
                 f"Connection references undefined zone '{z2}'."
             )
 
-        pair = tuple(sorted((z1, z2)))
+        zone_a, zone_b = sorted((z1, z2))
+        pair = (zone_a, zone_b)
         if pair in self._seen_connection_pairs:
             raise ParsingError(
                 line_num,
