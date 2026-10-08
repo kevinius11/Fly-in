@@ -242,3 +242,28 @@ def test_graph_get_zone_unknown_raises_key_error() -> None:
         assert False, "Expected KeyError was not raised."
     except KeyError:
         pass
+
+
+def test_graph_get_zone_names() -> None:
+    """Ensure get_zone_names returns every zone name."""
+    z_a = Zone("A", 0, 0, ZoneType.NORMAL, 1)
+    z_b = Zone("B", 1, 1, ZoneType.NORMAL, 1)
+    z_c = Zone("C", 2, 2, ZoneType.RESTRICTED, 1)
+
+    map_data = MapData(
+        1,
+        {
+            "A": z_a,
+            "B": z_b,
+            "C": z_c,
+        },
+        [],
+        z_a,
+        z_c,
+    )
+
+    graph = Graph(map_data)
+
+    zone_names = graph.get_zone_names()
+
+    assert zone_names == ["A", "B", "C"]

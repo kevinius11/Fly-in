@@ -10,23 +10,21 @@ def find_shortest_path(
 ) -> list[str] | None:
     """
     """
-    nodes = len(graph._map_data.zones)
-
-    heap = []
-    dist = [float('inf')] * nodes
-    adj = graph._adj
-
+    dist = {
+        node: float("inf")
+        for node in graph.get_zone_names()
+    }
     dist[start_name] = 0
-    heapq.heappush(heap, (0, start_name))
+    pq = [(0, start_name)]  # (distance, node)
 
-    while heap:
-        d, u = heapq.heappop(heap)
-
-        if d > dist[u]:
+    while pq:
+        d, node = heapq.heappop(pq)
+        if d > dist[node]:
             continue
 
-        for v, w in adj[u]:
-            if dist[u] + w < dist[v]:
-                dist[v] = dist[u] + w
-                heapq.heappush(heap, (dist[v], v))
-    return None
+        for neighbor, weight in graph[node]:
+            new_dist = d + weight
+            if new_dist < dist[neighbor]:
+                dist[neighbor] = new_dist
+                heapq.heappush(pq, (new_dist, neighbor))
+    return dist

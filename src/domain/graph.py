@@ -137,3 +137,12 @@ class Graph:
             KeyError: If the requested zone does not exist.
         """
         return self._map_data.zones[zone_name]
+
+    def get_zone_names(self) -> list[str]:
+        """
+        Return the names of all zones in the graph.
+
+        Returns:
+            A list containing the name of every zone in the graph.
+        """
+        return list(self._map_data.zones.keys())
