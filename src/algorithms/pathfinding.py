@@ -26,23 +26,25 @@ def find_shortest_path(
     Raises:
         ValueError: If start_name or end_name does not exist in the graph.
     """
-    if not graph.get_zone(start_name):
-        raise ValueError(
-            f"Start zone: '{start_name}' does not exist in graph."
-            )
+    zone_names = graph.get_zone_names()
 
-    if not graph.get_zone(end_name):
+    if start_name not in zone_names:
         raise ValueError(
-            f"End zone: '{end_name}' does not exist in graph."
-            )
+            f"Start zone '{start_name}' does not exist in the graph."
+        )
+
+    if end_name not in zone_names:
+        raise ValueError(
+            f"End zone '{end_name}' does not exist in the graph."
+        )
 
     dist: dict[str, float] = {
         name: float("inf")
-        for name in graph.get_zone_names()
+        for name in zone_names
     }
     previous: dict[str, str | None] = {
         node: None
-        for node in graph.get_zone_names()
+        for node in zone_names
     }
 
     dist[start_name] = 0
