@@ -101,3 +101,11 @@ class Drone:
                     f"Connection {conn_zones} does not connect current zone "
                     f"'{current_zone}'to destination '{expected_destination}'."
                 )
+
+    @property
+    def current_zone(self) -> str | None:
+        """
+        """
+        if self.transit is not None:
+            return None
+        return self.path[self.path_index]

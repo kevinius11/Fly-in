@@ -209,3 +209,55 @@ def test_drone_rejects_incompatible_transit_connection() -> None:
             path_index=1,
             transit=transit,
         )
+
+
+def test_current_zone_returns_first_zone() -> None:
+    """Return the first zone when the drone starts its route."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "corridor", "goal"),
+    )
+
+    assert drone.current_zone == "start"
+
+
+def test_current_zone_returns_zone_at_current_index() -> None:
+    """Return the zone corresponding to the current path index."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "corridor", "goal"),
+        path_index=1,
+    )
+
+    assert drone.current_zone == "corridor"
+
+
+def test_current_zone_returns_none_during_transit(
+    connection: Connection,
+) -> None:
+    """Return None while the drone is travelling through a connection."""
+    transit = Transit(
+        connection=connection,
+        destination="restricted",
+        turns_remaining=1,
+    )
+
+    drone = Drone(
+        drone_id=1,
+        path=("start", "corridor", "restricted", "goal"),
+        path_index=1,
+        transit=transit,
+    )
+
+    assert drone.current_zone is None
+
+
+def test_current_zone_returns_destination_after_arrival() -> None:
+    """Return the destination zone after the drone arrives."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "goal"),
+        path_index=1,
+    )
+
+    assert drone.current_zone == "goal"
