@@ -105,7 +105,19 @@ class Drone:
     @property
     def current_zone(self) -> str | None:
         """
+        Return the current zone, or None while in transit.
         """
         if self.transit is not None:
             return None
         return self.path[self.path_index]
+
+    @property
+    def next_zone(self) -> str | None:
+        """
+        Return the next zone, or None if no movement can be initiated.
+        """
+        if self.transit is not None:
+            return None
+        if self.path_index + 1 < len(self.path):
+            return self.path[self.path_index + 1]
+        return None

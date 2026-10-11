@@ -261,3 +261,65 @@ def test_current_zone_returns_destination_after_arrival() -> None:
     )
 
     assert drone.current_zone == "goal"
+
+
+def test_next_zone_returns_first_destination() -> None:
+    """Return the next zone when the drone is at the start."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "corridor", "goal"),
+    )
+
+    assert drone.next_zone == "corridor"
+
+
+def test_next_zone_returns_zone_after_current_index() -> None:
+    """Return the next zone from an intermediate position."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "corridor", "restricted", "goal"),
+        path_index=1,
+    )
+
+    assert drone.next_zone == "restricted"
+
+
+def test_next_zone_returns_none_during_transit(
+    connection: Connection,
+) -> None:
+    """Return None while the drone is already in transit."""
+    transit = Transit(
+        connection=connection,
+        destination="restricted",
+        turns_remaining=1,
+    )
+
+    drone = Drone(
+        drone_id=1,
+        path=("start", "corridor", "restricted", "goal"),
+        path_index=1,
+        transit=transit,
+    )
+
+    assert drone.next_zone is None
+
+
+def test_next_zone_returns_none_at_end_of_route() -> None:
+    """Return None when the drone has reached the last zone."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "goal"),
+        path_index=1,
+    )
+
+    assert drone.next_zone is None
+
+
+def test_next_zone_returns_none_for_single_zone_route() -> None:
+    """Return None when the route contains only one zone."""
+    drone = Drone(
+        drone_id=1,
+        path=("goal",),
+    )
+
+    assert drone.next_zone is None
