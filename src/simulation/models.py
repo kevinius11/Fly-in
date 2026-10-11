@@ -121,3 +121,8 @@ class Drone:
         if self.path_index + 1 < len(self.path):
             return self.path[self.path_index + 1]
         return None
+
+    @property
+    def is_delivered(self) -> bool:
+        """Return whether the drone has reached the end of its route."""
+        return (self.transit is None and self.path_index == len(self.path) - 1)

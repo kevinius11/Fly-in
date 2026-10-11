@@ -323,3 +323,65 @@ def test_next_zone_returns_none_for_single_zone_route() -> None:
     )
 
     assert drone.next_zone is None
+
+
+def test_is_delivered_returns_false_at_start() -> None:
+    """A drone at the start has not completed its route."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "corridor", "goal"),
+    )
+
+    assert drone.is_delivered is False
+
+
+def test_is_delivered_returns_false_at_intermediate_zone() -> None:
+    """A drone at an intermediate zone is not delivered."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "corridor", "goal"),
+        path_index=1,
+    )
+
+    assert drone.is_delivered is False
+
+
+def test_is_delivered_returns_false_during_transit(
+    connection: Connection,
+) -> None:
+    """A drone in transit has not reached its destination zone."""
+    transit = Transit(
+        connection=connection,
+        destination="restricted",
+        turns_remaining=1,
+    )
+
+    drone = Drone(
+        drone_id=1,
+        path=("start", "corridor", "restricted", "goal"),
+        path_index=1,
+        transit=transit,
+    )
+
+    assert drone.is_delivered is False
+
+
+def test_is_delivered_returns_true_at_destination() -> None:
+    """A drone at the final zone with no active transit is delivered."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "corridor", "goal"),
+        path_index=2,
+    )
+
+    assert drone.is_delivered is True
+
+
+def test_is_delivered_returns_true_for_single_zone_route() -> None:
+    """A drone with a single-zone route is already at the end."""
+    drone = Drone(
+        drone_id=1,
+        path=("goal",),
+    )
+
+    assert drone.is_delivered is True
