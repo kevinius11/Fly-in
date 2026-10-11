@@ -65,7 +65,7 @@ class Drone:
         """
         if self.drone_id <= 0:
             raise ValueError(
-                f"Drone id cannot be negative, got {self.drone_id}"
+                f"Drone ID must be positive, got {self.drone_id}"
             )
 
         if not self.path:
