@@ -40,3 +40,64 @@ class Transit:
                 "Destination does not match the destination from"
                 " the connection object."
             )
+
+
+@dataclass
+class Drone:
+    """
+    Represent a drone and its current simulation state.
+
+    Attributes:
+        drone_id: Unique positive identifier of the drone.
+        path: Ordered sequence of zones defining the planned route.
+        path_index: Index of the last zone reached by the drone.
+        transit: Active transit, or None if the drone is in a zone.
+    """
+
+    drone_id: int
+    path: tuple[str, ...]
+    path_index: int = 0
+    transit: Transit | None = None
+
+    def __post_init__(self) -> None:
+        """
+        Validate the drone's initial state.
+        """
+        if self.drone_id <= 0:
+            raise ValueError(
+                f"Drone id cannot be negative, got {self.drone_id}"
+            )
+
+        if not self.path:
+            raise ValueError(
+                "Path cannot be empty."
+            )
+
+        if not (0 <= self.path_index < len(self.path)):
+            raise ValueError(
+                f"Path index is out of path bounds, got {self.path_index}"
+            )
+
+        if self.transit is not None:
+            if not (self.path_index + 1 < len(self.path)):
+                raise ValueError(
+                    "There is no possible next step in the route."
+                )
+
+            expected_destination = self.path[self.path_index + 1]
+            if not (self.transit.destination == expected_destination):
+                raise ValueError(
+                    f"Transit destination '{self.transit.destination}' does "
+                    f"not match next planned zone '{expected_destination}'."
+                )
+
+            current_zone = self.path[self.path_index]
+            conn_zones = {
+                self.transit.connection.zone_a,
+                self.transit.connection.zone_b
+            }
+            if conn_zones != {current_zone, expected_destination}:
+                raise ValueError(
+                    f"Connection {conn_zones} does not connect current zone "
+                    f"'{current_zone}'to destination '{expected_destination}'."
+                )
