@@ -789,3 +789,162 @@ def test_find_zone_violation_ignores_start_end_capacity_limits() -> None:
     occupancy = {"A": 5, "B": 0, "C": 4}
 
     assert scheduler._find_zone_capacity_violation(occupancy) is None
+
+
+def test_find_connection_violation_returns_none_when_valid() -> None:
+    """Return None when connection usage stays within capacity."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.NORMAL,
+        },
+        connection_specs=[("A", "B", 1)],
+        start_name="A",
+        end_name="B",
+    )
+    scheduler = Scheduler(graph)
+    connection = graph.get_neighbors("A")[0].connection
+
+    move = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.MOVE,
+        origin="A",
+        destination="B",
+        connection=connection,
+    )
+
+    result = scheduler._find_connection_capacity_violation(
+        [move], []
+    )
+
+    assert result is None
+
+
+def test_find_connection_violation_returns_overloaded_connection() -> None:
+    """Return the connection used beyond its capacity."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.NORMAL,
+        },
+        connection_specs=[("A", "B", 1)],
+        start_name="A",
+        end_name="B",
+    )
+    scheduler = Scheduler(graph)
+    connection = graph.get_neighbors("A")[0].connection
+
+    moves = [
+        PlannedMove(
+            drone_id=1,
+            kind=MoveKind.MOVE,
+            origin="A",
+            destination="B",
+            connection=connection,
+        ),
+        PlannedMove(
+            drone_id=2,
+            kind=MoveKind.MOVE,
+            origin="B",
+            destination="A",
+            connection=connection,
+        ),
+    ]
+
+    result = scheduler._find_connection_capacity_violation(moves, [])
+
+    assert result is connection
+
+
+def test_find_connection_violation_counts_active_transit() -> None:
+    """Detect a conflict between an active transit and a new movement."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.RESTRICTED,
+            "C": ZoneType.NORMAL,
+        },
+        connection_specs=[
+            ("A", "B", 1),
+            ("B", "C", 1),
+        ],
+        start_name="A",
+        end_name="C",
+    )
+    scheduler = Scheduler(graph)
+    connection = next(
+        edge.connection
+        for edge in graph.get_neighbors("A")
+        if edge.target.name == "B"
+    )
+
+    transit = Transit(
+        connection=connection,
+        destination="B",
+        turns_remaining=1,
+    )
+    drone = Drone(
+        drone_id=1,
+        path=("A", "B", "C"),
+        transit=transit,
+    )
+    candidate = PlannedMove(
+        drone_id=2,
+        kind=MoveKind.START_TRANSIT,
+        origin="A",
+        destination="B",
+        connection=connection,
+    )
+
+    result = scheduler._find_connection_capacity_violation(
+        [candidate], [drone]
+    )
+
+    assert result is connection
+
+
+def test_find_connection_violation_does_not_double_count_completion() -> None:
+    """Count an active transit only once when it completes."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.RESTRICTED,
+            "C": ZoneType.NORMAL,
+        },
+        connection_specs=[
+            ("A", "B", 1),
+            ("B", "C", 1),
+        ],
+        start_name="A",
+        end_name="C",
+    )
+    scheduler = Scheduler(graph)
+    connection = next(
+        edge.connection
+        for edge in graph.get_neighbors("A")
+        if edge.target.name == "B"
+    )
+
+    transit = Transit(
+        connection=connection,
+        destination="B",
+        turns_remaining=1,
+    )
+    drone = Drone(
+        drone_id=1,
+        path=("A", "B", "C"),
+        transit=transit,
+    )
+    completion = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.COMPLETE_TRANSIT,
+        origin=None,
+        destination="B",
+        connection=connection,
+    )
+
+    result = scheduler._find_connection_capacity_violation(
+        [completion], [drone]
+    )
+
+    assert result is None
