@@ -1,7 +1,7 @@
 import pytest
 
 from src.domain.models import Connection
-from src.simulation.models import Transit, Drone
+from src.simulation.models import Transit, Drone, MoveKind, PlannedMove
 
 
 @pytest.fixture
@@ -385,3 +385,64 @@ def test_is_delivered_returns_true_for_single_zone_route() -> None:
     )
 
     assert drone.is_delivered is True
+
+
+def test_planned_move_represents_normal_movement() -> None:
+    """Represent an ordinary movement between two zones."""
+    connection = Connection(
+        zone_a="A",
+        zone_b="B",
+        max_link_capacity=1,
+    )
+
+    move = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.MOVE,
+        origin="A",
+        destination="B",
+        connection=connection,
+    )
+
+    assert move.drone_id == 1
+    assert move.kind is MoveKind.MOVE
+    assert move.origin == "A"
+    assert move.destination == "B"
+    assert move.connection == connection
+
+
+def test_planned_move_represents_transit_start(
+    connection: Connection,
+) -> None:
+    """Represent the beginning of a restricted-zone transit."""
+    move = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.START_TRANSIT,
+        origin="corridor",
+        destination="restricted",
+        connection=connection,
+    )
+
+    assert move.drone_id == 1
+    assert move.kind is MoveKind.START_TRANSIT
+    assert move.origin == "corridor"
+    assert move.destination == "restricted"
+    assert move.connection == connection
+
+
+def test_planned_move_represents_transit_completion(
+    connection: Connection,
+) -> None:
+    """Represent the completion of an active transit."""
+    move = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.COMPLETE_TRANSIT,
+        origin=None,
+        destination="restricted",
+        connection=connection,
+    )
+
+    assert move.drone_id == 1
+    assert move.kind is MoveKind.COMPLETE_TRANSIT
+    assert move.origin is None
+    assert move.destination == "restricted"
+    assert move.connection == connection

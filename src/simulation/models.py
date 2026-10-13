@@ -132,8 +132,26 @@ class Drone:
 
 
 class MoveKind(Enum):
-    """
-    """
+    """Define the actions available to a planned drone movement."""
     MOVE = "move"
     START_TRANSIT = "start_transit"
     COMPLETE_TRANSIT = "complete_transit"
+
+
+@dataclass(frozen=True)
+class PlannedMove:
+    """
+    Represent a movement selected for a simulation turn.
+
+    Attributes:
+        drone_id: Identifier of the drone performing the action.
+        kind: Type of movement to execute.
+        origin: Zone being left, or None when completing a transit.
+        destination: Name of the destination zone.
+        connection: Connection used by the movement.
+    """
+    drone_id: int
+    kind: MoveKind
+    origin: str | None
+    destination: str
+    connection: Connection
