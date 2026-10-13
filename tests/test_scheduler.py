@@ -458,3 +458,91 @@ def test_calculate_occupancy_rejects_missing_origin() -> None:
 
     with pytest.raises(ValueError, match="must have a valid origin zone"):
         scheduler._calculate_final_zone_occupancy([move], [drone])
+
+
+def test_zone_capacities_respected_within_limits() -> None:
+    """Accept occupancy that stays within zone capacities."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.NORMAL,
+            "C": ZoneType.NORMAL,
+        },
+        connection_specs=[
+            ("A", "B", 1),
+            ("B", "C", 1),
+        ],
+        start_name="A",
+        end_name="C",
+    )
+    scheduler = Scheduler(graph)
+
+    occupancy = {"A": 1, "B": 1, "C": 1}
+
+    assert scheduler._zone_capacities_respected(occupancy) is True
+
+
+def test_zone_capacities_reject_over_capacity() -> None:
+    """Reject occupancy exceeding a normal zone's capacity."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.NORMAL,
+            "C": ZoneType.NORMAL,
+        },
+        connection_specs=[
+            ("A", "B", 1),
+            ("B", "C", 1),
+        ],
+        start_name="A",
+        end_name="C",
+    )
+    scheduler = Scheduler(graph)
+
+    occupancy = {"A": 0, "B": 2, "C": 0}
+
+    assert scheduler._zone_capacities_respected(occupancy) is False
+
+
+def test_zone_capacities_reject_negative_occupancy() -> None:
+    """Reject a negative final zone occupancy."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.NORMAL,
+            "C": ZoneType.NORMAL,
+        },
+        connection_specs=[
+            ("A", "B", 1),
+            ("B", "C", 1),
+        ],
+        start_name="A",
+        end_name="C",
+    )
+    scheduler = Scheduler(graph)
+
+    occupancy = {"A": 0, "B": -1, "C": 0}
+
+    assert scheduler._zone_capacities_respected(occupancy) is False
+
+
+def test_start_and_end_zones_ignore_normal_capacity_limits() -> None:
+    """Allow multiple drones in start and end zones."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.NORMAL,
+            "C": ZoneType.NORMAL,
+        },
+        connection_specs=[
+            ("A", "B", 1),
+            ("B", "C", 1),
+        ],
+        start_name="A",
+        end_name="C",
+    )
+    scheduler = Scheduler(graph)
+
+    occupancy = {"A": 5, "B": 0, "C": 4}
+
+    assert scheduler._zone_capacities_respected(occupancy) is True
