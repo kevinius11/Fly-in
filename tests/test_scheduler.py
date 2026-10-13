@@ -701,3 +701,91 @@ def test_completed_transit_is_not_counted_twice() -> None:
     assert scheduler._connection_capacities_respected(
         [completion], [drone]
     ) is True
+
+
+def test_find_zone_violation_returns_none_when_valid() -> None:
+    """Return None when all zones respect their capacities."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.NORMAL,
+            "C": ZoneType.NORMAL,
+        },
+        connection_specs=[
+            ("A", "B", 1),
+            ("B", "C", 1),
+        ],
+        start_name="A",
+        end_name="C",
+    )
+    scheduler = Scheduler(graph)
+
+    occupancy = {"A": 1, "B": 1, "C": 1}
+
+    assert scheduler._find_zone_capacity_violation(occupancy) is None
+
+
+def test_find_zone_violation_returns_over_capacity_zone() -> None:
+    """Return the name of a zone exceeding its capacity."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.NORMAL,
+            "C": ZoneType.NORMAL,
+        },
+        connection_specs=[
+            ("A", "B", 1),
+            ("B", "C", 1),
+        ],
+        start_name="A",
+        end_name="C",
+    )
+    scheduler = Scheduler(graph)
+
+    occupancy = {"A": 0, "B": 2, "C": 0}
+
+    assert scheduler._find_zone_capacity_violation(occupancy) == "B"
+
+
+def test_find_zone_violation_returns_negative_occupancy_zone() -> None:
+    """Return the name of a zone with negative occupancy."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.NORMAL,
+            "C": ZoneType.NORMAL,
+        },
+        connection_specs=[
+            ("A", "B", 1),
+            ("B", "C", 1),
+        ],
+        start_name="A",
+        end_name="C",
+    )
+    scheduler = Scheduler(graph)
+
+    occupancy = {"A": 0, "B": -1, "C": 0}
+
+    assert scheduler._find_zone_capacity_violation(occupancy) == "B"
+
+
+def test_find_zone_violation_ignores_start_end_capacity_limits() -> None:
+    """Do not apply ordinary capacity limits to start and end zones."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.NORMAL,
+            "C": ZoneType.NORMAL,
+        },
+        connection_specs=[
+            ("A", "B", 1),
+            ("B", "C", 1),
+        ],
+        start_name="A",
+        end_name="C",
+    )
+    scheduler = Scheduler(graph)
+
+    occupancy = {"A": 5, "B": 0, "C": 4}
+
+    assert scheduler._find_zone_capacity_violation(occupancy) is None
