@@ -1,5 +1,5 @@
 from src.domain.graph import Graph, Edge
-from src.domain.models import ZoneType
+from src.domain.models import ZoneType, Connection
 
 from src.simulation.models import Drone, PlannedMove, MoveKind
 
@@ -157,31 +157,7 @@ class Scheduler:
         drones: list[Drone],
     ) -> bool:
         """Check whether connection usage respects link capacities."""
-        connection_usage: dict[frozenset[str], int] = {}
-        connection_capacities: dict[frozenset[str], int] = {}
-
-        # Chequeamos cuantos drones ya estabana activos antes del turno
-        for drone in drones:
-            if drone.transit is not None:
-                conn = drone.transit.connection
-                key = frozenset((conn.zone_a, conn.zone_b))
-                connection_usage[key] = connection_usage.get(key, 0) + 1
-                connection_capacities[key] = conn.max_link_capacity
-
-        # Chequeamos posibles candidatos MoveKind
-        for move in moves:
-            if move.kind in (MoveKind.MOVE, MoveKind.START_TRANSIT):
-                conn = move.connection
-                key = frozenset((conn.zone_b, conn.zone_a))
-                connection_usage[key] = connection_usage.get(key, 0) + 1
-                connection_capacities[key] = conn.max_link_capacity
-
-        # Chequeamos si se supera la capacidad de conexion
-        for key, usage in connection_usage.items():
-            if usage > connection_capacities[key]:
-                return False
-
-        return True
+        return self._find_connection_capacity_violation(moves, drones) is None
 
     def _find_zone_capacity_violation(
         self,
@@ -202,5 +178,40 @@ class Scheduler:
             # Comprobamos capacidad
             if count > zone.max_drones:
                 return zone_name
+
+        return None
+
+    def _find_connection_capacity_violation(
+        self,
+        moves: list[PlannedMove],
+        drones: list[Drone],
+    ) -> Connection | None:
+        """Return an over-capacity connection, if any."""
+        connection_usage: dict[frozenset[str], int] = {}
+        connection_capacities: dict[frozenset[str], int] = {}
+        connections: dict[frozenset[str], Connection] = {}
+
+        # Chequeamos cuantos drones ya estabana activos antes del turno
+        for drone in drones:
+            if drone.transit is not None:
+                conn = drone.transit.connection
+                key = frozenset((conn.zone_a, conn.zone_b))
+                connection_usage[key] = connection_usage.get(key, 0) + 1
+                connection_capacities[key] = conn.max_link_capacity
+                connections[key] = conn
+
+        # Chequeamos posibles candidatos MoveKind
+        for move in moves:
+            if move.kind in (MoveKind.MOVE, MoveKind.START_TRANSIT):
+                conn = move.connection
+                key = frozenset((conn.zone_b, conn.zone_a))
+                connection_usage[key] = connection_usage.get(key, 0) + 1
+                connection_capacities[key] = conn.max_link_capacity
+                connections[key] = conn
+
+        # Chequeamos si se supera la capacidad de conexion
+        for key, usage in connection_usage.items():
+            if usage > connection_capacities[key]:
+                return connections[key]
 
         return None
