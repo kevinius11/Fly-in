@@ -215,3 +215,32 @@ class Scheduler:
                 return connections[key]
 
         return None
+
+    def _calculate_reserved_arrivals(
+        self,
+        moves: list[PlannedMove],
+        drones: list[Drone],
+    ) -> dict[str, int]:
+        """Count future arrivals reserved by active and planned transits."""
+        # Iniciamos contador a 0 para todas las zonas del grafo
+        reserved: dict[str, int] = {
+            zone_name: 0
+            for zone_name in self._graph.get_zone_names()
+        }
+
+        # Contamos transitos que no se completan en este turno
+        for drone in drones:
+            if (drone.transit is not None
+               and drone.transit.turns_remaining > 1):
+                dest = drone.transit.destination
+                if dest in reserved:
+                    reserved[dest] += 1
+
+        # Contar reservas para los posibles nuevos movimientos de transito
+        for move in moves:
+            if move.kind == MoveKind.START_TRANSIT:
+                dest = move.destination
+                if dest in reserved:
+                    reserved[dest] += 1
+
+        return reserved
