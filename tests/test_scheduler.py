@@ -1302,3 +1302,61 @@ def test_select_rejects_transit_exceeding_future_reservations() -> None:
     )
 
     assert selected == []
+
+
+def test_plan_turn_returns_empty_when_all_drones_are_delivered() -> None:
+    """Return no movements when every drone has been delivered."""
+    scheduler, _ = _build_reserved_arrivals_scheduler()
+
+    drone = Drone(
+        drone_id=1,
+        path=("start", "end"),
+        path_index=1,
+    )
+
+    assert scheduler.plan_turn([drone]) == []
+
+
+def test_plan_turn_selects_valid_normal_move() -> None:
+    """Collect and approve a valid normal movement."""
+    scheduler, connections = _build_reserved_arrivals_scheduler()
+
+    drone = Drone(
+        drone_id=1,
+        path=("start", "middle", "end"),
+    )
+
+    expected_move = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.MOVE,
+        origin="start",
+        destination="middle",
+        connection=connections["start-middle"],
+    )
+
+    assert scheduler.plan_turn([drone]) == [expected_move]
+
+
+def test_plan_turn_includes_mandatory_transit_completion() -> None:
+    """Include a transit completion when the drone must arrive now."""
+    scheduler, connections = _build_reserved_arrivals_scheduler()
+
+    drone = Drone(
+        drone_id=1,
+        path=("start", "restricted", "end"),
+        transit=Transit(
+            connection=connections["start-restricted"],
+            destination="restricted",
+            turns_remaining=1,
+        ),
+    )
+
+    expected_move = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.COMPLETE_TRANSIT,
+        origin=None,
+        destination="restricted",
+        connection=connections["start-restricted"],
+    )
+
+    assert scheduler.plan_turn([drone]) == [expected_move]
