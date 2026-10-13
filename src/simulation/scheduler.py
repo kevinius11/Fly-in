@@ -170,7 +170,7 @@ class Scheduler:
 
         # Chequeamos posibles candidatos MoveKind
         for move in moves:
-            if move.kind in ((MoveKind.MOVE, MoveKind.START_TRANSIT)):
+            if move.kind in (MoveKind.MOVE, MoveKind.START_TRANSIT):
                 conn = move.connection
                 key = frozenset((conn.zone_b, conn.zone_a))
                 connection_usage[key] = connection_usage.get(key, 0) + 1
@@ -182,3 +182,25 @@ class Scheduler:
                 return False
 
         return True
+
+    def _find_zone_capacity_violation(
+        self,
+        occupancy: dict[str, int],
+    ) -> str | None:
+        """Return a zone violating occupancy constraints, if any."""
+        for zone_name, count in occupancy.items():
+            # Chequeo negativos
+            if count < 0:
+                return zone_name
+
+            zone = self._graph.get_zone(zone_name)
+
+            # Chequeamos inicio y fin
+            if zone.is_start or zone.is_end:
+                continue
+
+            # Comprobamos capacidad
+            if count > zone.max_drones:
+                return zone_name
+
+        return None
