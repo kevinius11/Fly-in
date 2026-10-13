@@ -131,3 +131,22 @@ class Scheduler:
                 occupancy[move.destination] += 1
 
         return occupancy
+
+    def _zone_capacities_respected(
+            self,
+            occupancy: dict[str, int],
+    ) -> bool:
+        """Check whether final zone occupancy respects zone capacities."""
+        for zone_name, count in occupancy.items():
+            if count < 0:  # Ocupacion negativa
+                return False
+
+            zone = self._graph.get_zone(zone_name)
+
+            if zone.is_start or zone.is_end:
+                continue
+
+            if count > zone.max_drones:
+                return False
+
+        return True
