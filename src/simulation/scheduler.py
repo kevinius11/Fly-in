@@ -107,6 +107,11 @@ class Scheduler:
 
         # Ajustamos segun salidas y entradas
         for move in moves:
+            if move.destination not in occupancy:
+                raise ValueError(
+                    f"Destination zone '{move.destination}' for drone "
+                    f"{move.drone_id} does not exist in the map graph."
+                )
             # Si el dron sale de normal/restrictesd liberamos plaza
             if move.kind in (MoveKind.MOVE, MoveKind.START_TRANSIT):
                 if move.origin is None:
@@ -123,11 +128,6 @@ class Scheduler:
 
             # Si el dron entra o completa un transito incrementa plaza
             if move.kind in (MoveKind.MOVE, MoveKind.COMPLETE_TRANSIT):
-                if move.destination not in occupancy:
-                    raise ValueError(
-                        f"Destination zone '{move.destination}' for drone "
-                        f"{move.drone_id} does not exist in the map graph."
-                    )
                 occupancy[move.destination] += 1
 
         return occupancy

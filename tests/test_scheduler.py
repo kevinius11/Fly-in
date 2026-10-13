@@ -3,6 +3,8 @@ from src.domain.models import Connection, MapData, Zone, ZoneType
 from src.simulation.models import Drone, MoveKind, Transit
 from src.simulation.scheduler import Scheduler, PlannedMove
 
+import pytest
+
 
 def _build_graph(
     zone_types: dict[str, ZoneType],
@@ -396,3 +398,63 @@ def test_calculate_occupancy_for_simultaneous_moves() -> None:
     )
 
     assert result == {"A": 0, "B": 1, "C": 1}
+
+
+def test_calculate_occupancy_rejects_unknown_transit_destination() -> None:
+    """Reject a transit start targeting a nonexistent zone."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.RESTRICTED,
+        },
+        connection_specs=[("A", "B", 1)],
+        start_name="A",
+        end_name="B",
+    )
+    scheduler = Scheduler(graph)
+    drone = Drone(
+        drone_id=1,
+        path=("A", "B"),
+    )
+    connection = graph.get_neighbors("A")[0].connection
+
+    move = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.START_TRANSIT,
+        origin="A",
+        destination="UNKNOWN",
+        connection=connection,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Destination zone 'UNKNOWN'",
+    ):
+        scheduler._calculate_final_zone_occupancy(
+            [move],
+            [drone],
+        )
+
+
+def test_calculate_occupancy_rejects_missing_origin() -> None:
+    """Reject a movement that requires an origin but has none."""
+    graph = _build_graph(
+        zone_types={"A": ZoneType.NORMAL, "B": ZoneType.NORMAL},
+        connection_specs=[("A", "B", 1)],
+        start_name="A",
+        end_name="B",
+    )
+    scheduler = Scheduler(graph)
+    drone = Drone(drone_id=1, path=("A", "B"))
+    connection = graph.get_neighbors("A")[0].connection
+
+    move = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.MOVE,
+        origin=None,
+        destination="B",
+        connection=connection,
+    )
+
+    with pytest.raises(ValueError, match="must have a valid origin zone"):
+        scheduler._calculate_final_zone_occupancy([move], [drone])
