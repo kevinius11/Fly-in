@@ -1145,3 +1145,160 @@ def test_accumulates_existing_and_new_transit_reservations() -> None:
     )
 
     assert reserved["restricted"] == 2
+
+
+def test_select_rejects_move_exceeding_zone_capacity() -> None:
+    """Reject a move that would overfill its destination."""
+    scheduler, connections = _build_reserved_arrivals_scheduler()
+
+    occupant = Drone(
+        drone_id=1,
+        path=("middle", "end"),
+    )
+    mover = Drone(
+        drone_id=2,
+        path=("start", "middle", "end"),
+    )
+
+    candidate = PlannedMove(
+        drone_id=2,
+        kind=MoveKind.MOVE,
+        origin="start",
+        destination="middle",
+        connection=connections["start-middle"],
+    )
+
+    selected = scheduler._select_compatible_moves(
+        candidates=[candidate],
+        drones=[occupant, mover],
+    )
+
+    assert selected == []
+
+
+def test_select_approves_valid_move_only_once() -> None:
+    """Approve a valid movement without adding it multiple times."""
+    scheduler, connections = _build_reserved_arrivals_scheduler()
+
+    drone = Drone(
+        drone_id=1,
+        path=("start", "middle", "end"),
+    )
+
+    candidate = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.MOVE,
+        origin="start",
+        destination="middle",
+        connection=connections["start-middle"],
+    )
+
+    selected = scheduler._select_compatible_moves(
+        candidates=[candidate],
+        drones=[drone],
+    )
+
+    assert selected == [candidate]
+    assert len(selected) == 1
+
+
+def test_select_rejects_conflicting_connection_moves() -> None:
+    """Reject a second movement when both would overload a connection."""
+    scheduler, connections = _build_reserved_arrivals_scheduler()
+
+    restricted_drone = Drone(
+        drone_id=1,
+        path=("restricted", "start", "end"),
+    )
+    start_drone = Drone(
+        drone_id=2,
+        path=("start", "restricted", "end"),
+    )
+
+    move_out = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.MOVE,
+        origin="restricted",
+        destination="start",
+        connection=connections["start-restricted"],
+    )
+
+    move_in = PlannedMove(
+        drone_id=2,
+        kind=MoveKind.MOVE,
+        origin="start",
+        destination="restricted",
+        connection=connections["start-restricted"],
+    )
+
+    selected = scheduler._select_compatible_moves(
+        candidates=[move_out, move_in],
+        drones=[restricted_drone, start_drone],
+    )
+
+    assert selected == [move_out]
+
+
+def test_select_preserves_mandatory_transit_completion() -> None:
+    """Never discard a transit that must complete this turn."""
+    scheduler, connections = _build_reserved_arrivals_scheduler()
+
+    drone = Drone(
+        drone_id=1,
+        path=("start", "restricted", "end"),
+        transit=Transit(
+            connection=connections["start-restricted"],
+            destination="restricted",
+            turns_remaining=1,
+        ),
+    )
+
+    completion = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.COMPLETE_TRANSIT,
+        origin=None,
+        destination="restricted",
+        connection=connections["start-restricted"],
+    )
+
+    selected = scheduler._select_compatible_moves(
+        candidates=[completion],
+        drones=[drone],
+    )
+
+    assert selected == [completion]
+
+
+def test_select_rejects_transit_exceeding_future_reservations() -> None:
+    """Reject a new transit that would overbook future zone capacity."""
+    scheduler, connections = _build_reserved_arrivals_scheduler()
+
+    active_drone = Drone(
+        drone_id=1,
+        path=("start", "restricted", "end"),
+        transit=Transit(
+            connection=connections["start-restricted"],
+            destination="restricted",
+            turns_remaining=2,
+        ),
+    )
+
+    new_drone = Drone(
+        drone_id=2,
+        path=("middle", "restricted", "end"),
+    )
+
+    candidate = PlannedMove(
+        drone_id=2,
+        kind=MoveKind.START_TRANSIT,
+        origin="middle",
+        destination="restricted",
+        connection=connections["middle-restricted"],
+    )
+
+    selected = scheduler._select_compatible_moves(
+        candidates=[candidate],
+        drones=[active_drone, new_drone],
+    )
+
+    assert selected == []
