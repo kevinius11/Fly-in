@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from enum import Enum
 
 from src.domain.models import Connection
 
@@ -128,3 +129,11 @@ class Drone:
         Return whether the drone has reached the end of its route.
         """
         return (self.transit is None and self.path_index == len(self.path) - 1)
+
+
+class MoveKind(Enum):
+    """
+    """
+    MOVE = "move"
+    START_TRANSIT = "start_transit"
+    COMPLETE_TRANSIT = "complete_transit"
