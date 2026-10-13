@@ -948,3 +948,200 @@ def test_find_connection_violation_does_not_double_count_completion() -> None:
     )
 
     assert result is None
+
+
+def _build_reserved_arrivals_scheduler() -> (
+    tuple[Scheduler, dict[str, Connection]]
+):
+    """Build a small graph for testing future transit reservations."""
+    from src.domain.models import MapData, Zone
+
+    start = Zone(
+        name="start",
+        x=0,
+        y=0,
+        zone_type=ZoneType.NORMAL,
+        max_drones=1,
+        is_start=True,
+    )
+    restricted = Zone(
+        name="restricted",
+        x=1,
+        y=0,
+        zone_type=ZoneType.RESTRICTED,
+        max_drones=1,
+    )
+    middle = Zone(
+        name="middle",
+        x=0,
+        y=1,
+        zone_type=ZoneType.NORMAL,
+        max_drones=1,
+    )
+    end = Zone(
+        name="end",
+        x=2,
+        y=0,
+        zone_type=ZoneType.NORMAL,
+        max_drones=1,
+        is_end=True,
+    )
+
+    zones = {
+        "start": start,
+        "restricted": restricted,
+        "middle": middle,
+        "end": end,
+    }
+
+    connections = {
+        "start-restricted": Connection(
+            zone_a="start",
+            zone_b="restricted",
+            max_link_capacity=1,
+        ),
+        "start-middle": Connection(
+            zone_a="start",
+            zone_b="middle",
+            max_link_capacity=1,
+        ),
+        "middle-restricted": Connection(
+            zone_a="middle",
+            zone_b="restricted",
+            max_link_capacity=1,
+        ),
+        "restricted-end": Connection(
+            zone_a="restricted",
+            zone_b="end",
+            max_link_capacity=1,
+        ),
+    }
+
+    map_data = MapData(
+        nb_drones=3,
+        zones=zones,
+        connections=list(connections.values()),
+        start_hub=start,
+        end_hub=end,
+    )
+
+    return Scheduler(Graph(map_data)), connections
+
+
+def test_reserves_arrival_for_transit_with_more_than_one_turn() -> None:
+    """Reserve a destination for a transit that is still in progress."""
+    scheduler, connections = _build_reserved_arrivals_scheduler()
+
+    drone = Drone(
+        drone_id=1,
+        path=("start", "restricted", "end"),
+        path_index=0,
+        transit=Transit(
+            connection=connections["start-restricted"],
+            destination="restricted",
+            turns_remaining=2,
+        ),
+    )
+
+    reserved = scheduler._calculate_reserved_arrivals(
+        moves=[],
+        drones=[drone],
+    )
+
+    assert reserved["restricted"] == 1
+    assert reserved["middle"] == 0
+
+
+def test_does_not_reserve_arrival_for_transit_completing_this_turn() -> None:
+    """Avoid reserving a second time for an arrival due this turn."""
+    scheduler, connections = _build_reserved_arrivals_scheduler()
+
+    drone = Drone(
+        drone_id=1,
+        path=("start", "restricted", "end"),
+        path_index=0,
+        transit=Transit(
+            connection=connections["start-restricted"],
+            destination="restricted",
+            turns_remaining=1,
+        ),
+    )
+
+    reserved = scheduler._calculate_reserved_arrivals(
+        moves=[],
+        drones=[drone],
+    )
+
+    assert reserved["restricted"] == 0
+
+
+def test_reserves_arrival_for_new_transit() -> None:
+    """Reserve the destination when a new transit is planned."""
+    scheduler, connections = _build_reserved_arrivals_scheduler()
+
+    move = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.START_TRANSIT,
+        origin="start",
+        destination="restricted",
+        connection=connections["start-restricted"],
+    )
+
+    reserved = scheduler._calculate_reserved_arrivals(
+        moves=[move],
+        drones=[],
+    )
+
+    assert reserved["restricted"] == 1
+
+
+def test_normal_move_does_not_create_future_reservation() -> None:
+    """A normal move must not reserve a future transit arrival."""
+    scheduler, connections = _build_reserved_arrivals_scheduler()
+
+    move = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.MOVE,
+        origin="start",
+        destination="middle",
+        connection=connections["start-middle"],
+    )
+
+    reserved = scheduler._calculate_reserved_arrivals(
+        moves=[move],
+        drones=[],
+    )
+
+    assert reserved["middle"] == 0
+    assert all(count == 0 for count in reserved.values())
+
+
+def test_accumulates_existing_and_new_transit_reservations() -> None:
+    """Count both an active transit and a newly planned transit."""
+    scheduler, connections = _build_reserved_arrivals_scheduler()
+
+    active_drone = Drone(
+        drone_id=1,
+        path=("start", "restricted", "end"),
+        path_index=0,
+        transit=Transit(
+            connection=connections["start-restricted"],
+            destination="restricted",
+            turns_remaining=2,
+        ),
+    )
+
+    new_move = PlannedMove(
+        drone_id=2,
+        kind=MoveKind.START_TRANSIT,
+        origin="middle",
+        destination="restricted",
+        connection=connections["middle-restricted"],
+    )
+
+    reserved = scheduler._calculate_reserved_arrivals(
+        moves=[new_move],
+        drones=[active_drone],
+    )
+
+    assert reserved["restricted"] == 2
