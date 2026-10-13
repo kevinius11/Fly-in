@@ -88,7 +88,55 @@ class Scheduler:
             drones: list[Drone],
     ) -> list[PlannedMove]:
         """Select movements that respect zone and connectionn capacities"""
-        raise ValueError("aun no")
+        approved_movements: list[PlannedMove] = []
+
+        complete_transits = [
+            m for m in candidates if m.kind == MoveKind.COMPLETE_TRANSIT
+        ]
+
+        ordinary_moves = [
+            m for m in candidates if m.kind != MoveKind.COMPLETE_TRANSIT
+        ]
+
+        # Aprobar primero todos los transitos completados
+        approved_movements.extend(complete_transits)
+
+        # Evaluamos candidatos ordinarios en secuencia
+        for candidate in ordinary_moves:
+            test_moves = approved_movements + [candidate]
+
+            # Verificamos capacidad de conexiones para el conjunto
+            if not self._connection_capacities_respected(test_moves, drones):
+                continue
+
+            # Calculamos la ocupacion y posibles reservas
+            projected_occupancy = self._calculate_final_zone_occupancy(
+                test_moves, drones
+            )
+
+            future_reservations = self._calculate_reserved_arrivals(
+                test_moves, drones
+            )
+
+            # Comprobamos formula Op + FutReservas <= CapacidadZona
+            violates_zone_capacity = False
+            for zone_name, count in projected_occupancy.items():
+                zone = self._graph.get_zone(zone_name)
+                if zone.is_start or zone.is_end:
+                    continue
+
+                total_demand = count + future_reservations.get(zone_name, 0)
+                if total_demand > zone.max_drones:
+                    violates_zone_capacity = True
+                    break
+
+            if violates_zone_capacity:
+                continue
+
+            # Si pasa las comprobaciones
+            approved_movements.append(candidate)
+
+        return approved_movements
 
     def _calculate_final_zone_occupancy(
             self,
