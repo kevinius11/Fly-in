@@ -12,7 +12,7 @@ class Engine:
             drones: list[Drone],
     ) -> None:
         self._scheduler = scheduler
-        self._drones = Drone
+        self._drones = drones
         self._turns_elapsed = 0
         self._history: list[list[PlannedMove]] = []
 
