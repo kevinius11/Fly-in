@@ -16,9 +16,9 @@ class Scheduler:
             drones: list[Drone],
     ) -> list[PlannedMove]:
         """Plan valid movements for the current simulation turn."""
-        raise NotImplementedError(
-            "Turn planning has not been implemented yet."
-        )
+        candidates = self._collect_candidates(drones)
+        approved_moves = self._select_compatible_moves(candidates, drones)
+        return approved_moves
 
     def _collect_candidates(
             self,
