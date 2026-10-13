@@ -36,7 +36,7 @@ class Scheduler:
             # Gestionamos transitos activos
             if dron.transit is not None:
                 if dron.transit.turns_remaining == 1:
-                    # Trannsito listo para completar
+                    # Transito listo para completar
                     complete_move = PlannedMove(
                         drone_id=dron.drone_id,
                         origin=None,
@@ -45,6 +45,7 @@ class Scheduler:
                         kind=MoveKind.COMPLETE_TRANSIT
                     )
                     candidates.append(complete_move)
+                    continue
 
             origin = dron.current_zone
             destination = dron.next_zone
@@ -80,3 +81,53 @@ class Scheduler:
             candidates.append(planned_move)
 
         return candidates
+
+    def _select_compatible_moves(
+            self,
+            candidates: list[PlannedMove],
+            drones: list[Drone],
+    ) -> list[PlannedMove]:
+        """Select movements that respect zone and connectionn capacities"""
+        raise ValueError("aun no")
+
+    def _calculate_final_zone_occupancy(
+            self,
+            moves: list[PlannedMove],
+            drones: list[Drone],
+    ) -> dict[str, int]:
+        """Calculate zone occupancy after a simultaneous set of movements."""
+        occupancy: dict[str, int] = {}
+
+        # Contamos drones menos los que esten entregados o en transito
+        for name in self._graph.get_zone_names():
+            occupancy[name] = sum(
+                1 for d in drones
+                if d.current_zone == name and not d.is_delivered
+            )
+
+        # Ajustamos segun salidas y entradas
+        for move in moves:
+            # Si el dron sale de normal/restrictesd liberamos plaza
+            if move.kind in (MoveKind.MOVE, MoveKind.START_TRANSIT):
+                if move.origin is None:
+                    raise ValueError(
+                        f"Malformed PlannedMove  of type {move.kind.name}: "
+                        f"drone {move.drone_id} must have a valid origin zone."
+                    )
+                if move.origin not in occupancy:
+                    raise ValueError(
+                        f"Origin zone '{move.origin}' for drone "
+                        f"{move.drone_id} does not exist in the map graph."
+                    )
+                occupancy[move.origin] -= 1
+
+            # Si el dron entra o completa un transito incrementa plaza
+            if move.kind in (MoveKind.MOVE, MoveKind.COMPLETE_TRANSIT):
+                if move.destination not in occupancy:
+                    raise ValueError(
+                        f"Destination zone '{move.destination}' for drone "
+                        f"{move.drone_id} does not exist in the map graph."
+                    )
+                occupancy[move.destination] += 1
+
+        return occupancy

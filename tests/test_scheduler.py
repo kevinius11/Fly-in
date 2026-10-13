@@ -1,7 +1,7 @@
 from src.domain.graph import Graph
 from src.domain.models import Connection, MapData, Zone, ZoneType
 from src.simulation.models import Drone, MoveKind, Transit
-from src.simulation.scheduler import Scheduler
+from src.simulation.scheduler import Scheduler, PlannedMove
 
 
 def _build_graph(
@@ -242,3 +242,157 @@ def test_collect_candidates_does_not_complete_transit_early() -> None:
     candidates = scheduler._collect_candidates([drone])
 
     assert candidates == []
+
+
+def test_calculate_occupancy_for_normal_move() -> None:
+    """Count the origin departure and destination arrival."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.NORMAL,
+        },
+        connection_specs=[("A", "B", 1)],
+        start_name="A",
+        end_name="B",
+    )
+    scheduler = Scheduler(graph)
+    drone = Drone(drone_id=1, path=("A", "B"))
+    connection = graph.get_neighbors("A")[0].connection
+
+    move = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.MOVE,
+        origin="A",
+        destination="B",
+        connection=connection,
+    )
+
+    result = scheduler._calculate_final_zone_occupancy(
+        [move], [drone]
+    )
+
+    assert result == {"A": 0, "B": 1}
+
+
+def test_calculate_occupancy_for_transit_start() -> None:
+    """Free the origin without occupying the restricted destination."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.RESTRICTED,
+        },
+        connection_specs=[("A", "B", 1)],
+        start_name="A",
+        end_name="B",
+    )
+    scheduler = Scheduler(graph)
+    drone = Drone(drone_id=1, path=("A", "B"))
+    connection = graph.get_neighbors("A")[0].connection
+
+    move = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.START_TRANSIT,
+        origin="A",
+        destination="B",
+        connection=connection,
+    )
+
+    result = scheduler._calculate_final_zone_occupancy(
+        [move], [drone]
+    )
+
+    assert result == {"A": 0, "B": 0}
+
+
+def test_calculate_occupancy_for_transit_completion() -> None:
+    """Count arrival when a drone completes its transit."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.RESTRICTED,
+        },
+        connection_specs=[("A", "B", 1)],
+        start_name="A",
+        end_name="B",
+    )
+    scheduler = Scheduler(graph)
+    connection = graph.get_neighbors("A")[0].connection
+
+    transit = Transit(
+        connection=connection,
+        destination="B",
+        turns_remaining=1,
+    )
+    drone = Drone(
+        drone_id=1,
+        path=("A", "B"),
+        transit=transit,
+    )
+    move = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.COMPLETE_TRANSIT,
+        origin=None,
+        destination="B",
+        connection=connection,
+    )
+
+    result = scheduler._calculate_final_zone_occupancy(
+        [move], [drone]
+    )
+
+    assert result == {"A": 0, "B": 1}
+
+
+def test_calculate_occupancy_for_simultaneous_moves() -> None:
+    """Account for a departure and arrival in the same turn."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.NORMAL,
+            "C": ZoneType.NORMAL,
+        },
+        connection_specs=[
+            ("A", "B", 1),
+            ("B", "C", 1),
+        ],
+        start_name="A",
+        end_name="C",
+    )
+    scheduler = Scheduler(graph)
+
+    drone_1 = Drone(drone_id=1, path=("A", "B"))
+    drone_2 = Drone(drone_id=2, path=("B", "C"))
+
+    connection_ab = next(
+        edge.connection
+        for edge in graph.get_neighbors("A")
+        if edge.target.name == "B"
+    )
+    connection_bc = next(
+        edge.connection
+        for edge in graph.get_neighbors("B")
+        if edge.target.name == "C"
+    )
+
+    moves = [
+        PlannedMove(
+            drone_id=1,
+            kind=MoveKind.MOVE,
+            origin="A",
+            destination="B",
+            connection=connection_ab,
+        ),
+        PlannedMove(
+            drone_id=2,
+            kind=MoveKind.MOVE,
+            origin="B",
+            destination="C",
+            connection=connection_bc,
+        ),
+    ]
+
+    result = scheduler._calculate_final_zone_occupancy(
+        moves, [drone_1, drone_2]
+    )
+
+    assert result == {"A": 0, "B": 1, "C": 1}
