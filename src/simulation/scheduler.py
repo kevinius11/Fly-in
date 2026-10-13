@@ -150,3 +150,35 @@ class Scheduler:
                 return False
 
         return True
+
+    def _connection_capacities_respected(
+        self,
+        moves: list[PlannedMove],
+        drones: list[Drone],
+    ) -> bool:
+        """Check whether connection usage respects link capacities."""
+        connection_usage: dict[frozenset[str], int] = {}
+        connection_capacities: dict[frozenset[str], int] = {}
+
+        # Chequeamos cuantos drones ya estabana activos antes del turno
+        for drone in drones:
+            if drone.transit is not None:
+                conn = drone.transit.connection
+                key = frozenset((conn.zone_a, conn.zone_b))
+                connection_usage[key] = connection_usage.get(key, 0) + 1
+                connection_capacities[key] = conn.max_link_capacity
+
+        # Chequeamos posibles candidatos MoveKind
+        for move in moves:
+            if move.kind in ((MoveKind.MOVE, MoveKind.START_TRANSIT)):
+                conn = move.connection
+                key = frozenset((conn.zone_b, conn.zone_a))
+                connection_usage[key] = connection_usage.get(key, 0) + 1
+                connection_capacities[key] = conn.max_link_capacity
+
+        # Chequeamos si se supera la capacidad de conexion
+        for key, usage in connection_usage.items():
+            if usage > connection_capacities[key]:
+                return False
+
+        return True

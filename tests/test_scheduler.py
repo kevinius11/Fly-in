@@ -546,3 +546,158 @@ def test_start_and_end_zones_ignore_normal_capacity_limits() -> None:
     occupancy = {"A": 5, "B": 0, "C": 4}
 
     assert scheduler._zone_capacities_respected(occupancy) is True
+
+
+def test_connection_capacity_accepts_single_move() -> None:
+    """Accept one movement through a connection with capacity one."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.NORMAL,
+        },
+        connection_specs=[("A", "B", 1)],
+        start_name="A",
+        end_name="B",
+    )
+    scheduler = Scheduler(graph)
+    connection = graph.get_neighbors("A")[0].connection
+
+    move = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.MOVE,
+        origin="A",
+        destination="B",
+        connection=connection,
+    )
+
+    assert scheduler._connection_capacities_respected(
+        [move], []
+    ) is True
+
+
+def test_connection_capacity_rejects_opposite_moves() -> None:
+    """Reject two simultaneous movements through the same link."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.NORMAL,
+        },
+        connection_specs=[("A", "B", 1)],
+        start_name="A",
+        end_name="B",
+    )
+    scheduler = Scheduler(graph)
+    connection = graph.get_neighbors("A")[0].connection
+
+    moves = [
+        PlannedMove(
+            drone_id=1,
+            kind=MoveKind.MOVE,
+            origin="A",
+            destination="B",
+            connection=connection,
+        ),
+        PlannedMove(
+            drone_id=2,
+            kind=MoveKind.MOVE,
+            origin="B",
+            destination="A",
+            connection=connection,
+        ),
+    ]
+
+    assert scheduler._connection_capacities_respected(
+        moves, []
+    ) is False
+
+
+def test_active_transit_counts_toward_connection_capacity() -> None:
+    """Count existing transit when evaluating a new movement."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.RESTRICTED,
+            "C": ZoneType.NORMAL,
+        },
+        connection_specs=[
+            ("A", "B", 1),
+            ("B", "C", 1),
+        ],
+        start_name="A",
+        end_name="C",
+    )
+    scheduler = Scheduler(graph)
+    connection = next(
+        edge.connection
+        for edge in graph.get_neighbors("A")
+        if edge.target.name == "B"
+    )
+
+    transit = Transit(
+        connection=connection,
+        destination="B",
+        turns_remaining=1,
+    )
+    drone = Drone(
+        drone_id=1,
+        path=("A", "B", "C"),
+        transit=transit,
+    )
+
+    candidate = PlannedMove(
+        drone_id=2,
+        kind=MoveKind.START_TRANSIT,
+        origin="A",
+        destination="B",
+        connection=connection,
+    )
+
+    assert scheduler._connection_capacities_respected(
+        [candidate], [drone]
+    ) is False
+
+
+def test_completed_transit_is_not_counted_twice() -> None:
+    """Count an active transit once when its arrival is scheduled."""
+    graph = _build_graph(
+        zone_types={
+            "A": ZoneType.NORMAL,
+            "B": ZoneType.RESTRICTED,
+            "C": ZoneType.NORMAL,
+        },
+        connection_specs=[
+            ("A", "B", 1),
+            ("B", "C", 1),
+        ],
+        start_name="A",
+        end_name="C",
+    )
+    scheduler = Scheduler(graph)
+    connection = next(
+        edge.connection
+        for edge in graph.get_neighbors("A")
+        if edge.target.name == "B"
+    )
+
+    transit = Transit(
+        connection=connection,
+        destination="B",
+        turns_remaining=1,
+    )
+    drone = Drone(
+        drone_id=1,
+        path=("A", "B", "C"),
+        transit=transit,
+    )
+
+    completion = PlannedMove(
+        drone_id=1,
+        kind=MoveKind.COMPLETE_TRANSIT,
+        origin=None,
+        destination="B",
+        connection=connection,
+    )
+
+    assert scheduler._connection_capacities_respected(
+        [completion], [drone]
+    ) is True
