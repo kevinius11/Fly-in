@@ -251,3 +251,130 @@ def test_apply_moves_rejects_wrong_destination_atomically() -> None:
     assert drone.path_index == 0
     assert drone.current_zone == "start"
     assert drone.transit is None
+
+
+def test_advance_turn_executes_planned_move_and_records_turn() -> None:
+    """A turn applies the scheduler's move and updates engine bookkeeping."""
+    drone = Drone(drone_id=1, path=("start", "middle", "end"))
+    engine, _ = _build_engine([drone])
+
+    engine.advance_turn()
+
+    assert drone.current_zone == "middle"
+    assert drone.path_index == 1
+    assert engine._turns_elapsed == 1
+    assert len(engine._history) == 1
+    assert len(engine._history[0]) == 1
+    assert engine._history[0][0].kind == MoveKind.MOVE
+
+
+def test_advance_turn_completes_restricted_transit_on_following_turn() -> None:
+    """A restricted connection is entered, counted down, then completed."""
+    drone = Drone(drone_id=1, path=("start", "restricted", "end"))
+    engine, _ = _build_engine([drone])
+
+    engine.advance_turn()
+
+    assert drone.current_zone is None
+    assert drone.transit is not None
+    assert drone.transit.turns_remaining == 1
+    assert drone.path_index == 0
+
+    engine.advance_turn()
+
+    assert drone.transit is None
+    assert drone.current_zone == "restricted"
+    assert drone.path_index == 1
+    assert engine._turns_elapsed == 2
+    assert [moves[0].kind for moves in engine._history] == [
+        MoveKind.START_TRANSIT,
+        MoveKind.COMPLETE_TRANSIT,
+    ]
+
+
+def test_advance_transit_decrements_active_transit_and_leaves_idle_drone() -> None:
+    """Only active transits are decremented, preserving their other fields."""
+    transit_connection = Connection(
+        zone_a="start", zone_b="restricted", max_link_capacity=1,
+    )
+    transit = Transit(
+        connection=transit_connection,
+        destination="restricted",
+        turns_remaining=3,
+    )
+    travelling = Drone(
+        drone_id=1,
+        path=("start", "restricted", "end"),
+        transit=transit,
+    )
+    idle = Drone(drone_id=2, path=("start", "middle"))
+    engine, _ = _build_engine([travelling, idle])
+
+    engine.advance_transit()
+
+    assert travelling.transit == Transit(
+        connection=transit_connection,
+        destination="restricted",
+        turns_remaining=2,
+    )
+    assert idle.transit is None
+
+
+def test_advance_transit_rejects_ready_to_complete_transit() -> None:
+    """A transit with one turn remaining must be completed by a planned move."""
+    transit_connection = Connection(
+        zone_a="start", zone_b="restricted", max_link_capacity=1,
+    )
+    ready = Drone(
+        drone_id=1,
+        path=("start", "restricted", "end"),
+        transit=Transit(
+            connection=transit_connection,
+            destination="restricted",
+            turns_remaining=1,
+        ),
+    )
+    engine, _ = _build_engine([ready])
+
+    with pytest.raises(ValueError, match="should have completed"):
+        engine.advance_transit()
+
+    assert ready.transit is not None
+    assert ready.transit.turns_remaining == 1
+
+
+def test_advance_transit_validates_all_transits_before_decrementing() -> None:
+    """A rejected transit must not leave earlier drones partially advanced."""
+    connection = Connection(
+        zone_a="start", zone_b="restricted", max_link_capacity=1,
+    )
+    first = Drone(
+        drone_id=1,
+        path=("start", "restricted", "end"),
+        transit=Transit(connection, "restricted", 3),
+    )
+    ready = Drone(
+        drone_id=2,
+        path=("start", "restricted", "end"),
+        transit=Transit(connection, "restricted", 1),
+    )
+    engine, _ = _build_engine([first, ready])
+
+    with pytest.raises(ValueError, match="should have completed"):
+        engine.advance_transit()
+
+    assert first.transit is not None
+    assert first.transit.turns_remaining == 3
+    assert ready.transit is not None
+    assert ready.transit.turns_remaining == 1
+
+
+def test_step_delegates_to_advance_turn() -> None:
+    """The existing step entry point retains its complete-turn behavior."""
+    drone = Drone(drone_id=1, path=("start", "middle"))
+    engine, _ = _build_engine([drone])
+
+    engine.step()
+
+    assert drone.current_zone == "middle"
+    assert engine._turns_elapsed == 1

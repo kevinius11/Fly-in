@@ -84,3 +84,38 @@ class Engine:
             elif move.kind == MoveKind.COMPLETE_TRANSIT:
                 drone.transit = None
                 drone.path_index += 1
+
+    def advance_transit(self) -> None:
+        """Reduce the turns_remaining counter for active transit"""
+        # Validate the complete state before changing any transit, so an
+        # invalid ready-to-complete transit cannot leave earlier drones
+        # partially advanced.
+        for drone in self._drones:
+            if (drone.transit is not None
+                    and drone.transit.turns_remaining <= 1):
+                raise ValueError(
+                    f"Drone D{drone.drone_id} should have completed "
+                    "its transit before advancing the counter."
+                )
+
+        for drone in self._drones:
+            if drone.transit is not None:
+                transit = drone.transit
+                drone.transit = Transit(
+                    connection=transit.connection,
+                    destination=transit.destination,
+                    turns_remaining=transit.turns_remaining - 1,
+                )
+
+    def advance_turn(self) -> None:
+        """Plan and execute one complete simulation turn."""
+        moves = self._scheduler.plan_turn(self._drones)
+        self._apply_moves(moves)
+        self.advance_transit()
+
+        self._history.append(list(moves))
+        self._turns_elapsed += 1
+
+    def step(self) -> None:
+        """Backward-compatible alias for :meth:`advance_turn`."""
+        self.advance_turn()
