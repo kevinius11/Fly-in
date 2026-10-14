@@ -292,7 +292,7 @@ def test_advance_turn_completes_restricted_transit_on_following_turn() -> None:
     ]
 
 
-def test_advance_transit_decrements_active_transit_and_leaves_idle_drone() -> None:
+def test_advance_transit_decrements_active_and_leaves_idle_drone() -> None:
     """Only active transits are decremented, preserving their other fields."""
     transit_connection = Connection(
         zone_a="start", zone_b="restricted", max_link_capacity=1,
@@ -321,7 +321,7 @@ def test_advance_transit_decrements_active_transit_and_leaves_idle_drone() -> No
 
 
 def test_advance_transit_rejects_ready_to_complete_transit() -> None:
-    """A transit with one turn remaining must be completed by a planned move."""
+    """A one-turn transit must be completed by a planned move."""
     transit_connection = Connection(
         zone_a="start", zone_b="restricted", max_link_capacity=1,
     )

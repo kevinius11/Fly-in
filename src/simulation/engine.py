@@ -82,14 +82,20 @@ class Engine:
                 )
 
             elif move.kind == MoveKind.COMPLETE_TRANSIT:
+                transit = drone.transit
+                if transit is None:
+                    raise ValueError(f"D{move.drone_id} has no transit.")
+                if transit.turns_remaining != 1:
+                    raise ValueError(
+                        f"Drone D{drone.drone_id} cannot complete "
+                        f"transit with {transit.turns_remaining}"
+                        " turns remaining"
+                    )
                 drone.transit = None
                 drone.path_index += 1
 
     def advance_transit(self) -> None:
         """Reduce the turns_remaining counter for active transit"""
-        # Validate the complete state before changing any transit, so an
-        # invalid ready-to-complete transit cannot leave earlier drones
-        # partially advanced.
         for drone in self._drones:
             if (drone.transit is not None
                     and drone.transit.turns_remaining <= 1):
