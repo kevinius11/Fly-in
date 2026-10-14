@@ -61,6 +61,12 @@ class Engine:
             elif move.kind == MoveKind.COMPLETE_TRANSIT:
                 if drone.transit is None:
                     raise ValueError(f"D{move.drone_id} has no transit.")
+                if drone.transit.turns_remaining != 1:
+                    raise ValueError(
+                        f"Drone D{drone.drone_id} cannot complete "
+                        f"transit with {drone.transit.turns_remaining} "
+                        "turns remaining."
+                    )
                 if move.destination != drone.transit.destination:
                     raise ValueError(f"Dest mismatch for D{move.drone_id}.")
                 if move.connection != drone.transit.connection:
@@ -82,15 +88,6 @@ class Engine:
                 )
 
             elif move.kind == MoveKind.COMPLETE_TRANSIT:
-                transit = drone.transit
-                if transit is None:
-                    raise ValueError(f"D{move.drone_id} has no transit.")
-                if transit.turns_remaining != 1:
-                    raise ValueError(
-                        f"Drone D{drone.drone_id} cannot complete "
-                        f"transit with {transit.turns_remaining}"
-                        " turns remaining"
-                    )
                 drone.transit = None
                 drone.path_index += 1
 
@@ -133,8 +130,8 @@ class Engine:
 
     @property
     def history(self) -> list[list[PlannedMove]]:
-        """Return the recorded movements for each turn."""
-        return self._history
+        """Return a copy of the recorded movement history."""
+        return [turn.copy() for turn in self._history]
 
     def step(self) -> None:
         """Backward-compatible alias for :meth:`advance_turn`."""

@@ -378,3 +378,92 @@ def test_step_delegates_to_advance_turn() -> None:
 
     assert drone.current_zone == "middle"
     assert engine._turns_elapsed == 1
+
+
+def test_all_drones_delivered_returns_true() -> None:
+    """Return True when every drone has reached the end."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "middle", "end"),
+        path_index=2,
+    )
+    engine, _ = _build_engine([drone])
+
+    assert engine.all_drones_delivered() is True
+
+
+def test_all_drones_delivered_returns_false() -> None:
+    """Return False when a drone has not reached the end."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "middle", "end"),
+    )
+    engine, _ = _build_engine([drone])
+
+    assert engine.all_drones_delivered() is False
+
+
+def test_drone_in_transit_is_not_delivered() -> None:
+    """A drone in transit must not count as delivered."""
+    connection = Connection(
+        zone_a="start",
+        zone_b="restricted",
+        max_link_capacity=1,
+    )
+    drone = Drone(
+        drone_id=1,
+        path=("start", "restricted", "end"),
+        transit=Transit(
+            connection=connection,
+            destination="restricted",
+            turns_remaining=1,
+        ),
+    )
+    engine, _ = _build_engine([drone])
+
+    assert engine.all_drones_delivered() is False
+
+
+def test_engine_starts_with_empty_state() -> None:
+    """Initialize turn count and history to zero and empty."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "middle", "end"),
+    )
+    engine, _ = _build_engine([drone])
+
+    assert engine.turns_elapsed == 0
+    assert engine.history == []
+
+
+def test_advance_turn_updates_counter_and_history() -> None:
+    """Record each completed turn and increment the turn counter."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "middle", "end"),
+    )
+    engine, _ = _build_engine([drone])
+
+    engine.advance_turn()
+
+    assert engine.turns_elapsed == 1
+    assert len(engine.history) == 1
+    assert engine.history[0][0].kind == MoveKind.MOVE
+
+
+def test_history_property_returns_independent_copy() -> None:
+    """Prevent external modifications from changing internal history."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "middle", "end"),
+    )
+    engine, _ = _build_engine([drone])
+
+    engine.advance_turn()
+
+    history_copy = engine.history
+    history_copy[0].clear()
+    history_copy.clear()
+
+    assert len(engine.history) == 1
+    assert len(engine.history[0]) == 1
