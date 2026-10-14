@@ -122,6 +122,20 @@ class Engine:
         self._history.append(list(moves))
         self._turns_elapsed += 1
 
+    def all_drones_delivered(self) -> bool:
+        """Return whether all drones have reached their destination."""
+        return all(drone.is_delivered for drone in self._drones)
+
+    @property
+    def turns_elapsed(self) -> int:
+        """Return the number of elapsed simulation turns."""
+        return self._turns_elapsed
+
+    @property
+    def history(self) -> list[list[PlannedMove]]:
+        """Return the recorded movements for each turn."""
+        return self._history
+
     def step(self) -> None:
         """Backward-compatible alias for :meth:`advance_turn`."""
         self.advance_turn()
