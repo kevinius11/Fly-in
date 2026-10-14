@@ -467,3 +467,72 @@ def test_history_property_returns_independent_copy() -> None:
 
     assert len(engine.history) == 1
     assert len(engine.history[0]) == 1
+
+
+def test_run_returns_empty_history_when_all_drones_are_delivered() -> None:
+    """Finish immediately when all drones are already delivered."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "middle", "end"),
+        path_index=2,
+    )
+    engine, _ = _build_engine([drone])
+
+    history = engine.run()
+
+    assert history == []
+    assert engine.turns_elapsed == 0
+    assert engine.all_drones_delivered()
+
+
+def test_run_completes_normal_route() -> None:
+    """Run until a drone reaches the end through normal zones."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "middle", "end"),
+    )
+    engine, _ = _build_engine([drone])
+
+    history = engine.run()
+
+    assert engine.all_drones_delivered()
+    assert drone.current_zone == "end"
+    assert engine.turns_elapsed == 2
+    assert len(history) == 2
+    assert history == engine.history
+
+
+def test_run_completes_restricted_route_in_three_turns() -> None:
+    """Respect the two-turn transit to a restricted zone."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "restricted", "end"),
+    )
+    engine, _ = _build_engine([drone])
+
+    history = engine.run()
+
+    assert engine.all_drones_delivered()
+    assert drone.current_zone == "end"
+    assert engine.turns_elapsed == 3
+    assert len(history) == 3
+
+    assert history[0][0].kind == MoveKind.START_TRANSIT
+    assert history[1][0].kind == MoveKind.COMPLETE_TRANSIT
+    assert history[2][0].kind == MoveKind.MOVE
+
+
+def test_run_raises_error_when_route_cannot_progress() -> None:
+    """Detect a deadlock when no valid move can change the state."""
+    drone = Drone(
+        drone_id=1,
+        path=("start", "end"),
+    )
+    engine, _ = _build_engine([drone])
+
+    with pytest.raises(RuntimeError, match="deadlocked"):
+        engine.run()
+
+    assert not engine.all_drones_delivered()
+    assert engine.turns_elapsed == 1
+    assert engine.history == [[]]

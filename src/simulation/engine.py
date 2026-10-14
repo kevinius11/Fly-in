@@ -133,6 +133,28 @@ class Engine:
         """Return a copy of the recorded movement history."""
         return [turn.copy() for turn in self._history]
 
+    def run(self) -> list[list[PlannedMove]]:
+        """Run the simulation until delivery or deadlock."""
+        while not self.all_drones_delivered():
+            state_before = [
+                (drone.drone_id, drone.path_index, drone.transit)
+                for drone in self._drones
+            ]
+
+            self.advance_turn()
+
+            state_after = [
+                (drone.drone_id, drone.path_index, drone.transit)
+                for drone in self._drones
+            ]
+            if (state_before == state_after
+                    and not self.all_drones_delivered()):
+                raise RuntimeError(
+                    "Simulation is deadlocked: no drone state changed."
+                )
+
+        return self.history
+
     def step(self) -> None:
         """Backward-compatible alias for :meth:`advance_turn`."""
         self.advance_turn()
