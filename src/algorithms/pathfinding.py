@@ -1,6 +1,7 @@
-from src.domain.graph import Graph
-
 import heapq
+
+from src.domain.graph import Graph
+from src.domain.models import ZoneType
 
 
 def find_shortest_path(
@@ -38,22 +39,24 @@ def find_shortest_path(
             f"End zone '{end_name}' does not exist in the graph."
         )
 
-    dist: dict[str, float] = {
-        name: float("inf")
-        for name in zone_names
+    best_score: dict[str, tuple[int, int] | None] = {
+        name: None for name in zone_names
     }
     previous: dict[str, str | None] = {
         node: None
         for node in zone_names
     }
 
-    dist[start_name] = 0
-    pq: list[tuple[float, str]] = [(0, start_name)]  # (distance, node)
+    # Scores are ordered by movement cost first, then by descending number
+    # of priority zones (stored as a negative count for tuple ordering).
+    best_score[start_name] = (0, 0)
+    pq: list[tuple[int, int, str]] = [(0, 0, start_name)]
 
     while pq:
-        d, node = heapq.heappop(pq)
+        cost, negative_priority_count, node = heapq.heappop(pq)
+        score = (cost, negative_priority_count)
 
-        if d > dist[node]:
+        if score != best_score[node]:
             continue
 
         if node == end_name:  # Si el nodo que acaba de salir es el destino
@@ -61,15 +64,23 @@ def find_shortest_path(
 
         for edge in graph.get_neighbors(node):
             neighbor = edge.target.name
-            new_dist = d + edge.movement_cost
+            new_score = (
+                cost + edge.movement_cost,
+                negative_priority_count
+                - int(edge.target.zone_type == ZoneType.PRIORITY),
+            )
 
-            if new_dist < dist[neighbor]:
-                dist[neighbor] = new_dist
+            current_score = best_score[neighbor]
+            if current_score is None or new_score < current_score:
+                best_score[neighbor] = new_score
                 previous[neighbor] = node
-                heapq.heappush(pq, (new_dist, neighbor))
+                heapq.heappush(
+                    pq,
+                    (new_score[0], new_score[1], neighbor),
+                )
 
     # El destino es inalcanzable
-    if dist[end_name] == float("inf"):
+    if best_score[end_name] is None:
         return None
 
     # Reconstruccion del camino path, usando BACKTRACKING

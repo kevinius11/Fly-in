@@ -2,6 +2,7 @@
 
 import pytest
 
+from main import create_engine
 from src.domain.graph import Graph
 from src.domain.models import Connection, MapData, Zone, ZoneType
 from src.simulation.engine import Engine
@@ -148,3 +149,47 @@ def test_unusable_route_raises_controlled_deadlock_error() -> None:
     assert engine.turns_elapsed == 1
     assert drone.path_index == 0
     assert engine.history == [[]]
+
+
+def test_pathfinding_initialization_runs_route_through_engine() -> None:
+    zones = [
+        _zone("start", 0, start=True),
+        _zone("middle", 1),
+        _zone("end", 2, end=True),
+    ]
+    map_data = MapData(
+        nb_drones=1,
+        zones={zone.name: zone for zone in zones},
+        connections=[
+            Connection("start", "middle", 1),
+            Connection("middle", "end", 1),
+        ],
+        start_hub=zones[0],
+        end_hub=zones[2],
+    )
+
+    engine = create_engine(map_data)
+    history = engine.run()
+
+    assert engine.all_drones_delivered()
+    assert engine.turns_elapsed == 2
+    assert [move.destination for turn in history for move in turn] == [
+        "middle", "end",
+    ]
+
+
+def test_pathfinding_initialization_rejects_unreachable_end() -> None:
+    zones = [
+        _zone("start", 0, start=True),
+        _zone("end", 1, end=True),
+    ]
+    map_data = MapData(
+        nb_drones=1,
+        zones={zone.name: zone for zone in zones},
+        connections=[],
+        start_hub=zones[0],
+        end_hub=zones[1],
+    )
+
+    with pytest.raises(ValueError, match="No route exists"):
+        create_engine(map_data)

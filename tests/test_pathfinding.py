@@ -110,6 +110,54 @@ def test_find_shortest_path_minimizes_total_cost() -> None:
     assert path == ["start", "a", "b", "c", "goal"]
 
 
+def test_find_shortest_path_prefers_priority_when_costs_tie() -> None:
+    """Prefer more priority zones only when total movement cost ties."""
+    graph = _build_graph(
+        zone_types={
+            "start": ZoneType.NORMAL,
+            "a": ZoneType.NORMAL,
+            "priority": ZoneType.PRIORITY,
+            "goal": ZoneType.NORMAL,
+        },
+        connection_specs=[
+            ("start", "a", 1),
+            ("a", "goal", 1),
+            ("start", "priority", 1),
+            ("priority", "goal", 1),
+        ],
+        start_name="start",
+        end_name="goal",
+    )
+
+    assert find_shortest_path(graph, "start", "goal") == [
+        "start", "priority", "goal",
+    ]
+
+
+def test_find_shortest_path_cost_precedes_priority_preference() -> None:
+    """A cheaper route wins even if the longer route has priority zones."""
+    graph = _build_graph(
+        zone_types={
+            "start": ZoneType.NORMAL,
+            "a": ZoneType.NORMAL,
+            "priority": ZoneType.PRIORITY,
+            "goal": ZoneType.NORMAL,
+        },
+        connection_specs=[
+            ("start", "a", 1),
+            ("a", "goal", 1),
+            ("start", "priority", 1),
+            ("priority", "a", 1),
+        ],
+        start_name="start",
+        end_name="goal",
+    )
+
+    assert find_shortest_path(graph, "start", "goal") == [
+        "start", "a", "goal",
+    ]
+
+
 def test_find_shortest_path_avoids_blocked_zones() -> None:
     """Find an alternative route instead of entering a blocked zone."""
     graph = _build_graph(
