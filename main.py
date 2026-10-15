@@ -1,6 +1,6 @@
 import argparse
 
-from src.algorithms.pathfinding import find_shortest_path
+from src.algorithms.pathfinding import find_k_shortest_paths
 from src.domain.graph import Graph
 from src.domain.models import MapData
 from src.parser.map_parser import MapParser
@@ -10,21 +10,25 @@ from src.simulation.scheduler import Scheduler
 
 
 def create_engine(map_data: MapData) -> Engine:
-    """Build a simulation using one shortest route shared by all drones."""
+    """Build a simulation with drones alternating across up to two routes."""
     graph = Graph(map_data)
-    route = find_shortest_path(
+    routes = find_k_shortest_paths(
         graph,
         map_data.start_hub.name,
         map_data.end_hub.name,
+        k=2,
     )
-    if route is None:
+    if not routes:
         raise ValueError(
             f"No route exists from '{map_data.start_hub.name}' to "
             f"'{map_data.end_hub.name}'."
         )
 
     drones = [
-        Drone(drone_id=drone_id, path=tuple(route))
+        Drone(
+            drone_id=drone_id,
+            path=tuple(routes[(drone_id - 1) % len(routes)]),
+        )
         for drone_id in range(1, map_data.nb_drones + 1)
     ]
     return Engine(Scheduler(graph), drones)

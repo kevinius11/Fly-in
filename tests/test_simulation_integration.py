@@ -5,6 +5,7 @@ import pytest
 from main import create_engine
 from src.domain.graph import Graph
 from src.domain.models import Connection, MapData, Zone, ZoneType
+from src.parser.map_parser import MapParser
 from src.simulation.engine import Engine
 from src.simulation.models import Drone, MoveKind
 from src.simulation.scheduler import Scheduler
@@ -193,3 +194,18 @@ def test_pathfinding_initialization_rejects_unreachable_end() -> None:
 
     with pytest.raises(ValueError, match="No route exists"):
         create_engine(map_data)
+
+
+def test_challenger_route_alternation_stays_within_45_turns() -> None:
+    map_data = MapParser().parse_file(
+        "maps/challenger/01_the_impossible_dream.txt",
+    )
+
+    engine = create_engine(map_data)
+    assert engine._drones[0].path != engine._drones[1].path
+
+    history = engine.run()
+
+    assert all(drone.is_delivered for drone in engine._drones)
+    assert len(history) == engine.turns_elapsed
+    assert engine.turns_elapsed <= 45

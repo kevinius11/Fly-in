@@ -1,7 +1,10 @@
 
 import pytest
 
-from src.algorithms.pathfinding import find_shortest_path
+from src.algorithms.pathfinding import (
+    find_k_shortest_paths,
+    find_shortest_path,
+)
 from src.domain.graph import Graph
 from src.domain.models import Connection, MapData, Zone, ZoneType
 
@@ -279,3 +282,127 @@ def test_find_shortest_path_returns_correct_order() -> None:
     assert path == ["start", "a", "b", "goal"]
     assert path[0] == "start"
     assert path[-1] == "goal"
+
+
+def test_find_k_shortest_paths_returns_distinct_valid_routes_in_order(
+) -> None:
+    graph = _build_graph(
+        zone_types={
+            "start": ZoneType.NORMAL,
+            "priority": ZoneType.PRIORITY,
+            "middle": ZoneType.NORMAL,
+            "restricted": ZoneType.RESTRICTED,
+            "goal": ZoneType.NORMAL,
+            "blocked": ZoneType.BLOCKED,
+        },
+        connection_specs=[
+            ("start", "priority", 1),
+            ("priority", "goal", 1),
+            ("start", "middle", 1),
+            ("middle", "goal", 1),
+            ("start", "restricted", 1),
+            ("restricted", "goal", 1),
+            ("start", "blocked", 1),
+            ("blocked", "goal", 1),
+        ],
+        start_name="start",
+        end_name="goal",
+    )
+
+    paths = find_k_shortest_paths(graph, "start", "goal", k=5)
+
+    assert paths == [
+        ["start", "priority", "goal"],
+        ["start", "middle", "goal"],
+        ["start", "restricted", "goal"],
+    ]
+    assert len({tuple(path) for path in paths}) == len(paths)
+    assert all(len(path) == len(set(path)) for path in paths)
+    assert all("blocked" not in path for path in paths)
+
+
+def test_find_k_shortest_paths_returns_single_route_when_no_alternative(
+) -> None:
+    graph = _build_graph(
+        zone_types={
+            "start": ZoneType.NORMAL,
+            "middle": ZoneType.NORMAL,
+            "goal": ZoneType.NORMAL,
+        },
+        connection_specs=[("start", "middle", 1), ("middle", "goal", 1)],
+        start_name="start",
+        end_name="goal",
+    )
+
+    assert find_k_shortest_paths(graph, "start", "goal", k=2) == [
+        ["start", "middle", "goal"],
+    ]
+
+
+def test_find_k_shortest_paths_rejects_non_positive_k() -> None:
+    graph = _build_graph(
+        {"start": ZoneType.NORMAL}, [], "start", "start",
+    )
+
+    with pytest.raises(ValueError, match="k must be positive"):
+        find_k_shortest_paths(graph, "start", "start", k=0)
+
+
+def test_find_k_shortest_paths_orders_three_routes_by_cost_then_priority(
+) -> None:
+    graph = _build_graph(
+        zone_types={
+            "start": ZoneType.NORMAL,
+            "short": ZoneType.NORMAL,
+            "priority": ZoneType.PRIORITY,
+            "restricted_priority": ZoneType.RESTRICTED,
+            "restricted": ZoneType.RESTRICTED,
+            "long_normal": ZoneType.NORMAL,
+            "blocked": ZoneType.BLOCKED,
+            "goal": ZoneType.NORMAL,
+        },
+        connection_specs=[
+            ("start", "short", 1),
+            ("short", "goal", 1),
+            ("start", "priority", 1),
+            ("priority", "restricted_priority", 1),
+            ("restricted_priority", "goal", 1),
+            ("start", "restricted", 1),
+            ("restricted", "long_normal", 1),
+            ("long_normal", "goal", 1),
+            ("start", "blocked", 1),
+            ("blocked", "goal", 1),
+        ],
+        start_name="start",
+        end_name="goal",
+    )
+
+    paths = find_k_shortest_paths(graph, "start", "goal", k=3)
+
+    assert paths == [
+        ["start", "short", "goal"],
+        ["start", "priority", "restricted_priority", "goal"],
+        ["start", "restricted", "long_normal", "goal"],
+    ]
+    assert len(paths) == 3
+    assert len({tuple(path) for path in paths}) == 3
+    assert all(len(path) == len(set(path)) for path in paths)
+    assert all("blocked" not in path for path in paths)
+
+    scores = []
+    for path in paths:
+        movement_cost = sum(
+            next(
+                edge.movement_cost
+                for edge in graph.get_neighbors(origin)
+                if edge.target.name == destination
+            )
+            for origin, destination in zip(path, path[1:])
+        )
+        priority_count = sum(
+            graph.get_zone(zone_name).zone_type is ZoneType.PRIORITY
+            for zone_name in path
+        )
+        scores.append((movement_cost, -priority_count))
+
+    assert scores == sorted(scores)
