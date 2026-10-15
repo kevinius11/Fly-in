@@ -11,8 +11,14 @@ class Engine:
             scheduler: Scheduler,
             drones: list[Drone],
     ) -> None:
+        if not drones:
+            raise ValueError("Engine requires at least one drone.")
+        drone_ids = [drone.drone_id for drone in drones]
+        if len(drone_ids) != len(set(drone_ids)):
+            raise ValueError("Drone IDs must be unique.")
+
         self._scheduler = scheduler
-        self._drones = drones
+        self._drones = list(drones)
         self._turns_elapsed = 0
         self._history: list[list[PlannedMove]] = []
 
@@ -58,9 +64,44 @@ class Engine:
                     raise ValueError(
                         f"Connection mismatch for D{move.drone_id}."
                     )
+                if self._scheduler.is_blocked_zone(move.destination):
+                    raise ValueError(
+                        "Cannot move into a blocked destination "
+                        f"for D{move.drone_id}."
+                    )
+                destination_is_restricted = (
+                    self._scheduler.is_restricted_zone(move.destination)
+                )
+                if (move.kind == MoveKind.START_TRANSIT
+                        and not destination_is_restricted):
+                    raise ValueError(
+                        f"START_TRANSIT requires a restricted destination "
+                        f"for D{move.drone_id}."
+                    )
+                if (move.kind == MoveKind.MOVE
+                        and destination_is_restricted):
+                    raise ValueError(
+                        f"MOVE cannot enter a restricted destination for "
+                        f"D{move.drone_id}."
+                    )
             elif move.kind == MoveKind.COMPLETE_TRANSIT:
                 if drone.transit is None:
                     raise ValueError(f"D{move.drone_id} has no transit.")
+                if move.origin is not None:
+                    raise ValueError(
+                        "COMPLETE_TRANSIT origin must be None "
+                        f"for D{move.drone_id}."
+                    )
+                next_route_zone = (
+                    drone.path[drone.path_index + 1]
+                    if drone.path_index + 1 < len(drone.path)
+                    else None
+                )
+                if next_route_zone != drone.transit.destination:
+                    raise ValueError(
+                        "Active transit destination does not match "
+                        f"the route for D{drone.drone_id}."
+                    )
                 if drone.transit.turns_remaining != 1:
                     raise ValueError(
                         f"Drone D{drone.drone_id} cannot complete "
@@ -91,7 +132,7 @@ class Engine:
                 drone.transit = None
                 drone.path_index += 1
 
-    def advance_transit(self) -> None:
+    def _advance_transits(self) -> None:
         """Reduce the turns_remaining counter for active transit"""
         for drone in self._drones:
             if (drone.transit is not None
@@ -112,9 +153,14 @@ class Engine:
 
     def advance_turn(self) -> None:
         """Plan and execute one complete simulation turn."""
+        if self.all_drones_delivered():
+            return
+
         moves = self._scheduler.plan_turn(self._drones)
         self._apply_moves(moves)
-        self.advance_transit()
+        # _apply_moves() validates its move set atomically. The complete
+        # turn is not transactional if advancing transit fails afterward.
+        self._advance_transits()
 
         self._history.append(list(moves))
         self._turns_elapsed += 1

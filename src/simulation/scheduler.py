@@ -11,6 +11,14 @@ class Scheduler:
         """Initialize the scheduler with the map graph."""
         self._graph = graph
 
+    def is_restricted_zone(self, zone_name: str) -> bool:
+        """Return whether a zone requires a two-turn transit."""
+        return self._graph.get_zone(zone_name).zone_type == ZoneType.RESTRICTED
+
+    def is_blocked_zone(self, zone_name: str) -> bool:
+        """Return whether a zone is inaccessible to drones."""
+        return self._graph.get_zone(zone_name).zone_type == ZoneType.BLOCKED
+
     def plan_turn(
             self,
             drones: list[Drone],
