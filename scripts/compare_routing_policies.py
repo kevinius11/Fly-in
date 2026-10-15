@@ -10,6 +10,9 @@ to every drone; ``grouped`` assigns contiguous groups; ``round_robin`` and
 assigns each drone to the route with the smallest increase in squared
 capacity-normalized resource work. Connection demand uses movement duration;
 intermediate-zone demand counts one visit. Yen's route order breaks ties.
+``time_aware_greedy`` builds tentative turn calendars for each assignment,
+including connection durations, connection capacities, zone occupancy, and
+arrival reservations.
 
 ``turns`` is ``Engine.turns_elapsed``: every completed ``advance_turn`` call
 counts once, including an empty turn that exposes a deadlock. A call that
@@ -43,6 +46,7 @@ POLICIES = (
     "round_robin",
     "reverse_round_robin",
     "congestion_greedy",
+    "time_aware_greedy",
 )
 
 
@@ -73,6 +77,80 @@ def _route_resources(
     return resources
 
 
+def _estimate_route_schedule(
+        graph: Graph,
+        route: list[str],
+        connection_calendar: dict[frozenset[str], dict[int, int]],
+        zone_calendar: dict[str, dict[int, int]],
+        horizon: int,
+) -> tuple[int, int] | None:
+    """Reserve a route's earliest feasible estimated turns in calendars."""
+    elapsed = 0
+    wait_events = 0
+
+    for origin, destination in zip(route, route[1:]):
+        edge = next(
+            edge
+            for edge in graph.get_neighbors(origin)
+            if edge.target.name == destination
+        )
+        connection_key = frozenset((
+            edge.connection.zone_a,
+            edge.connection.zone_b,
+        ))
+        origin_zone = graph.get_zone(origin)
+        destination_zone = graph.get_zone(destination)
+        start_turn = elapsed + 1
+
+        while start_turn <= horizon:
+            arrival_turn = start_turn + edge.movement_cost - 1
+            connection_available = all(
+                connection_calendar.get(connection_key, {}).get(turn, 0)
+                < edge.connection.max_link_capacity
+                for turn in range(start_turn, arrival_turn + 1)
+            )
+            destination_available = (
+                destination_zone.is_start
+                or destination_zone.is_end
+                or zone_calendar.get(destination, {}).get(arrival_turn, 0)
+                < destination_zone.max_drones
+            )
+            origin_wait_available = (
+                origin_zone.is_start
+                or origin_zone.is_end
+                or all(
+                    zone_calendar.get(origin, {}).get(turn, 0)
+                    < origin_zone.max_drones
+                    for turn in range(elapsed + 1, start_turn)
+                )
+            )
+            if (connection_available and destination_available
+                    and origin_wait_available):
+                break
+            start_turn += 1
+        else:
+            return None
+
+        arrival_turn = start_turn + edge.movement_cost - 1
+        wait_events += start_turn - elapsed - 1
+        if not origin_zone.is_start and not origin_zone.is_end:
+            for turn in range(elapsed + 1, start_turn):
+                zone_calendar.setdefault(origin, {})[turn] = (
+                    zone_calendar.get(origin, {}).get(turn, 0) + 1
+                )
+        for turn in range(start_turn, arrival_turn + 1):
+            connection_calendar.setdefault(connection_key, {})[turn] = (
+                connection_calendar.get(connection_key, {}).get(turn, 0) + 1
+            )
+        if not destination_zone.is_start and not destination_zone.is_end:
+            zone_calendar.setdefault(destination, {})[arrival_turn] = (
+                zone_calendar.get(destination, {}).get(arrival_turn, 0) + 1
+            )
+        elapsed = arrival_turn
+
+    return elapsed, wait_events
+
+
 def _assigned_routes(
         routes: list[list[str]],
         drone_count: int,
@@ -91,6 +169,19 @@ def _assigned_routes(
         for route in routes
     ]
     assigned_work: dict[tuple[str, ...], int] = {}
+    connection_calendar: dict[frozenset[str], dict[int, int]] = {}
+    zone_calendar: dict[str, dict[int, int]] = {}
+    estimated_finishes: list[int] = []
+    estimated_waits = 0
+    schedule_horizon = (
+        max(
+            sum(demand for _, demand in resources.values())
+            for resources in route_resources
+        )
+        * (drone_count + 1)
+        * 4
+        + 10
+    )
 
     for index in range(drone_count):
         if policy == "shared":
@@ -119,6 +210,55 @@ def _assigned_routes(
                     candidate_index,
                 ),
             )
+        elif policy == "time_aware_greedy":
+            scheduled_candidates = []
+            for candidate_index, route in enumerate(routes):
+                candidate_connections = {
+                    key: slots.copy()
+                    for key, slots in connection_calendar.items()
+                }
+                candidate_zones = {
+                    key: slots.copy()
+                    for key, slots in zone_calendar.items()
+                }
+                estimate = _estimate_route_schedule(
+                    graph,
+                    route,
+                    candidate_connections,
+                    candidate_zones,
+                    schedule_horizon,
+                )
+                if estimate is None:
+                    continue
+                finish, waits = estimate
+                projected_makespan = max(
+                    max(estimated_finishes, default=0),
+                    finish,
+                )
+                scheduled_candidates.append((
+                    projected_makespan,
+                    estimated_waits + waits,
+                    finish,
+                    candidate_index,
+                    candidate_connections,
+                    candidate_zones,
+                ))
+
+            if not scheduled_candidates:
+                raise ValueError(
+                    "Could not schedule any candidate route within the "
+                    "time-aware benchmark horizon."
+                )
+            (
+                _,
+                waits,
+                finish,
+                route_index,
+                connection_calendar,
+                zone_calendar,
+            ) = min(scheduled_candidates, key=lambda item: item[:4])
+            estimated_finishes.append(finish)
+            estimated_waits = waits
         else:
             route_index = (index + 1) % len(routes)
         assigned.append(tuple(routes[route_index]))
