@@ -266,7 +266,8 @@ class Engine:
 
     @property
     def state_history(self) -> tuple[tuple[DroneSnapshot, ...], ...]:
-        """Get immutable drone snapshots from turn zero through the current turn.
+        """Get immutable drone snapshots from turn zero through the current
+        turn.
 
         Returns:
             A tuple containing one tuple of snapshots per recorded state.

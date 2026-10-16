@@ -381,7 +381,9 @@ class PygameVisualizer:
         # Long maps need the sidebar's space so every hub and connection can
         # stay visible at once inside the fixed-size window.
         show_sidebar = coordinate_width <= 12
-        side_width = min(330, max(270, int(width * 0.29))) if show_sidebar else 0
+        side_width = (
+            min(330, max(270, int(width * 0.29))) if show_sidebar else 0
+        )
         gap = 28 if show_sidebar else 0
         map_width = width - map_left - side_width - gap - 30
         map_height = max(250, height - 165)
@@ -471,7 +473,9 @@ class PygameVisualizer:
             pygame.draw.rect(screen, _RED, (panel_x, map_top, 3, 21))
             _text(screen, font, "Flight log", (panel_x + 12, map_top), _WHITE)
             y = map_top + 31
-            moves = self._engine.history[frame_index - 1] if frame_index else []
+            moves = (
+                self._engine.history[frame_index - 1] if frame_index else []
+            )
             if not moves:
                 _text(screen, small, "No activity recorded", (panel_x + 12, y),
                       _MUTED)
