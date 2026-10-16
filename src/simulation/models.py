@@ -107,6 +107,9 @@ class Drone:
     def current_zone(self) -> str | None:
         """
         Return the current zone, or None while in transit.
+
+        Returns:
+            Current zone name, or None when the drone is travelling.
         """
         if self.transit is not None:
             return None
@@ -116,6 +119,9 @@ class Drone:
     def next_zone(self) -> str | None:
         """
         Return the next zone, or None if no movement can be initiated.
+
+        Returns:
+            Next zone name, or None while travelling or after delivery.
         """
         if self.transit is not None:
             return None
@@ -127,6 +133,9 @@ class Drone:
     def is_delivered(self) -> bool:
         """
         Return whether the drone has reached the end of its route.
+
+        Returns:
+            True when the drone is at its final zone and not in transit.
         """
         return (self.transit is None and self.path_index == len(self.path) - 1)
 

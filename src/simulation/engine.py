@@ -1,3 +1,5 @@
+"""Orchestrate simulation turns and record immutable state snapshots."""
+
 from src.simulation.models import (
     Drone,
     DroneSnapshot,
@@ -10,13 +12,22 @@ from src.simulation.scheduler import Scheduler
 
 
 class Engine:
-    """Execute planned movements and maintain simulation state"""
+    """Execute scheduled moves and maintain simulation state and history."""
 
     def __init__(
             self,
             scheduler: Scheduler,
             drones: list[Drone],
     ) -> None:
+        """Create an engine with a scheduler and unique drone identifiers.
+
+        Args:
+            scheduler: Planner that selects capacity-safe moves per turn.
+            drones: Initial drone states for the simulation.
+
+        Raises:
+            ValueError: If no drones are supplied or their IDs are duplicated.
+        """
         if not drones:
             raise ValueError("Engine requires at least one drone.")
         drone_ids = [drone.drone_id for drone in drones]
@@ -33,7 +44,15 @@ class Engine:
             self,
             moves: list[PlannedMove],
     ) -> None:
-        """Apply approved movements to the corresponding drones."""
+        """Validate and apply approved movements atomically.
+
+        Args:
+            moves: Moves approved by the scheduler for this turn.
+
+        Raises:
+            ValueError: If a move is duplicated, invalid, or inconsistent
+                with the drone's route or transit state.
+        """
         seen_drone_ids: set[int] = set()
         validated_actions: list[tuple[Drone, PlannedMove]] = []
 
@@ -174,22 +193,38 @@ class Engine:
         self._state_history.append(self.drone_states)
 
     def all_drones_delivered(self) -> bool:
-        """Return whether all drones have reached their destination."""
+        """Check whether every drone has reached its destination.
+
+        Returns:
+            True when all drones are delivered; otherwise False.
+        """
         return all(drone.is_delivered for drone in self._drones)
 
     @property
     def turns_elapsed(self) -> int:
-        """Return the number of elapsed simulation turns."""
+        """Get the number of completed simulation turns.
+
+        Returns:
+            Number of turns recorded by the engine.
+        """
         return self._turns_elapsed
 
     @property
     def history(self) -> list[list[PlannedMove]]:
-        """Return a copy of the recorded movement history."""
+        """Get a copy of the recorded movement history.
+
+        Returns:
+            Per-turn move lists detached from the engine's internal lists.
+        """
         return [turn.copy() for turn in self._history]
 
     @property
     def drone_states(self) -> tuple[DroneSnapshot, ...]:
-        """Return immutable snapshots of every drone's current state."""
+        """Get an immutable snapshot of every drone's current state.
+
+        Returns:
+            A tuple of read-only drone state snapshots.
+        """
         snapshots: list[DroneSnapshot] = []
         for drone in self._drones:
             transit = drone.transit
@@ -220,18 +255,34 @@ class Engine:
 
     @property
     def last_moves(self) -> tuple[PlannedMove, ...]:
-        """Return the moves completed in the most recent simulation turn."""
+        """Get the moves recorded in the most recent simulation turn.
+
+        Returns:
+            A tuple of moves, or an empty tuple before the first turn.
+        """
         if not self._history:
             return ()
         return tuple(self._history[-1])
 
     @property
     def state_history(self) -> tuple[tuple[DroneSnapshot, ...], ...]:
-        """Return immutable drone snapshots from turn zero through now."""
+        """Get immutable drone snapshots from turn zero through the current turn.
+
+        Returns:
+            A tuple containing one tuple of snapshots per recorded state.
+        """
         return tuple(self._state_history)
 
     def run(self) -> list[list[PlannedMove]]:
-        """Run the simulation until delivery or deadlock."""
+        """Advance turns until all drones are delivered or deadlocked.
+
+        Returns:
+            A copy of the movement history.
+
+        Raises:
+            RuntimeError: If a turn does not change any drone state before
+                all drones are delivered.
+        """
         while not self.all_drones_delivered():
             state_before = [
                 (drone.drone_id, drone.path_index, drone.transit)

@@ -1,3 +1,5 @@
+"""Pathfinding algorithms that operate on the static map graph."""
+
 import heapq
 
 from src.domain.graph import Graph
@@ -10,7 +12,7 @@ def find_shortest_path(
         end_name: str,
 ) -> list[str] | None:
     """
-    Find the shortest path between two zones using Dijkstra's algorithm
+    Find a minimum-cost path between two zones using Dijkstra's algorithm.
 
     Computes the path with the minimum cumulative movement cost from the
     start zone to the target end zone over the provided graph topology.
@@ -48,6 +50,19 @@ def find_k_shortest_paths(
     Yen's algorithm generates alternatives without enumerating every path.
     Route score minimizes movement cost first and prefers more priority
     zones only when movement costs tie.
+
+    Args:
+        graph: Graph that supplies zone names and directed movement costs.
+        start_name: Name of the route's starting zone.
+        end_name: Name of the route's destination zone.
+        k: Maximum number of distinct routes to return; must be positive.
+
+    Returns:
+        Routes as ordered lists of zone names. Returns an empty list when
+        the destination is unreachable.
+
+    Raises:
+        ValueError: If ``k`` is not positive or an endpoint is unknown.
     """
     if k <= 0:
         raise ValueError(f"k must be positive, got {k}.")
@@ -117,7 +132,19 @@ def _validate_endpoints(
         start_name: str,
         end_name: str,
 ) -> None:
-    """Raise ValueError when either endpoint is absent from the graph."""
+    """Check that both route endpoints exist in the graph.
+
+    Args:
+        graph: Graph to query for its known zone names.
+        start_name: Name of the starting zone.
+        end_name: Name of the destination zone.
+
+    Returns:
+        None.
+
+    Raises:
+        ValueError: If either endpoint is absent from the graph.
+    """
     zone_names = graph.get_zone_names()
     if start_name not in zone_names:
         raise ValueError(
@@ -136,7 +163,18 @@ def _shortest_path(
         excluded_nodes: set[str],
         excluded_edges: set[tuple[str, str]],
 ) -> list[str] | None:
-    """Find the best path while omitting selected nodes and directed edges."""
+    """Find a minimum-score path while omitting selected nodes and edges.
+
+    Args:
+        graph: Graph that supplies candidate movements.
+        start_name: Name of the starting zone.
+        end_name: Name of the destination zone.
+        excluded_nodes: Zone names unavailable to this search.
+        excluded_edges: Directed endpoint pairs unavailable to this search.
+
+    Returns:
+        Ordered zone names for the best path, or None if unreachable.
+    """
     if start_name in excluded_nodes or end_name in excluded_nodes:
         return None
 
@@ -201,7 +239,15 @@ def _shortest_path(
 
 
 def _path_score(graph: Graph, path: tuple[str, ...]) -> tuple[int, int]:
-    """Return movement cost and negative priority-zone count for a path."""
+    """Calculate the route ordering key for a path.
+
+    Args:
+        graph: Graph that defines edge costs and destination zone types.
+        path: Ordered sequence of zone names.
+
+    Returns:
+        A tuple of total movement cost and negative priority-zone count.
+    """
     cost = 0
     priority_count = 0
     for origin, destination in zip(path, path[1:]):

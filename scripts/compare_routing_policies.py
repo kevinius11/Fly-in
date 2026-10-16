@@ -54,7 +54,15 @@ def _route_resources(
         graph: Graph,
         route: list[str],
 ) -> dict[tuple[str, ...], tuple[int, int]]:
-    """Estimate resource work as (capacity, drone-turn demand) per route."""
+    """Estimate capacity and drone-turn demand for each route resource.
+
+    Args:
+        graph: Graph containing route edges and zone capacities.
+        route: Ordered zone names forming a candidate route.
+
+    Returns:
+        Resource keys mapped to capacity and per-drone demand.
+    """
     resources: dict[tuple[str, ...], tuple[int, int]] = {}
     for origin, destination in zip(route, route[1:]):
         edge = next(
@@ -84,7 +92,18 @@ def _estimate_route_schedule(
         zone_calendar: dict[str, dict[int, int]],
         horizon: int,
 ) -> tuple[int, int] | None:
-    """Reserve a route's earliest feasible estimated turns in calendars."""
+    """Reserve the earliest feasible turns for a route in resource calendars.
+
+    Args:
+        graph: Graph containing the route's zones and links.
+        route: Ordered zone names forming a candidate route.
+        connection_calendar: Per-link usage counts by turn, updated in place.
+        zone_calendar: Per-zone occupancy counts by turn, updated in place.
+        horizon: Last turn that may be considered for a reservation.
+
+    Returns:
+        Arrival turn and wait-event count, or None if no schedule fits.
+    """
     elapsed = 0
     wait_events = 0
 
@@ -157,7 +176,20 @@ def _assigned_routes(
         policy: str,
         graph: Graph,
 ) -> list[tuple[str, ...]]:
-    """Assign candidate routes to drones using one named static policy."""
+    """Assign candidate routes to drones using a named policy.
+
+    Args:
+        routes: Candidate routes in pathfinding order.
+        drone_count: Number of drones to assign.
+        policy: Assignment policy name from ``POLICIES``.
+        graph: Graph used for resource cost and schedule estimates.
+
+    Returns:
+        One route tuple per drone, in drone assignment order.
+
+    Raises:
+        ValueError: If ``policy`` is not a supported assignment policy.
+    """
     if policy not in POLICIES:
         raise ValueError(f"Unknown route assignment policy: {policy}")
     if not routes:
@@ -192,6 +224,14 @@ def _assigned_routes(
             route_index = index % len(routes)
         elif policy == "congestion_greedy":
             def marginal_congestion(candidate_index: int) -> float:
+                """Estimate added squared normalized load for one route.
+
+                Args:
+                    candidate_index: Index of the candidate route.
+
+                Returns:
+                    Increase in normalized resource congestion.
+                """
                 marginal = 0.0
                 for key, (capacity, demand) in route_resources[
                         candidate_index
@@ -271,7 +311,14 @@ def _assigned_routes(
 def _simulation_state(
         engine: Engine,
 ) -> list[tuple[int, int, Transit | None]]:
-    """Snapshot drone route progress for deadlock detection."""
+    """Snapshot drone route progress for deadlock detection.
+
+    Args:
+        engine: Engine whose current drone state is inspected.
+
+    Returns:
+        Tuples of drone ID, route index, and active transit.
+    """
     return [
         (drone.drone_id, drone.path_index, drone.transit)
         for drone in engine._drones
@@ -283,7 +330,16 @@ def _capacity_violations(
         drones: list[Drone],
         moves: list[PlannedMove],
 ) -> int:
-    """Count over-capacity zones, future arrivals, and connections."""
+    """Count zone, reservation, and connection capacity violations.
+
+    Args:
+        map_data: Static map containing zone capacities.
+        drones: Current drone states before planned moves are applied.
+        moves: Moves planned for the current turn.
+
+    Returns:
+        Number of distinct violated zone or connection constraints.
+    """
     occupancy: Counter[str] = Counter(
         drone.current_zone
         for drone in drones
@@ -344,7 +400,18 @@ def _run_policy(
         routes: list[list[str]],
         policy: str,
 ) -> tuple[int, int, int, int, str]:
-    """Return delivered count, elapsed turns, and total zone wait events."""
+    """Run one assignment policy and collect comparable metrics.
+
+    Args:
+        map_data: Parsed map and simulation configuration.
+        graph: Static graph used by the scheduler.
+        routes: Candidate routes shared by the policies.
+        policy: Assignment policy name.
+
+    Returns:
+        Delivered count, elapsed turns, wait events, capacity violations,
+        and final status.
+    """
     assigned = _assigned_routes(
         routes,
         map_data.nb_drones,
@@ -402,7 +469,14 @@ def _run_policy(
 def _benchmark_map(
         map_path: Path,
 ) -> list[tuple[str, int, int, int, int, str]]:
-    """Run each assignment policy and return comparable metric rows."""
+    """Benchmark every assignment policy on one map.
+
+    Args:
+        map_path: Path to the map file to simulate.
+
+    Returns:
+        One metric row per policy, including a no-route status when needed.
+    """
     map_data = MapParser().parse_file(str(map_path))
     graph = Graph(map_data)
     routes = find_k_shortest_paths(

@@ -1,4 +1,4 @@
-"""Optional terminal dashboard for observing a Fly-in simulation."""
+"""Render and control Fly-in simulations in a terminal dashboard."""
 
 import os
 import select
@@ -47,7 +47,16 @@ _ZONE_MARKERS = {
 
 
 def _paint(value: str, color: str, enabled: bool) -> str:
-    """Wrap text in a known ANSI palette color when output is a terminal."""
+    """Wrap text in a known ANSI palette color when enabled.
+
+    Args:
+        value: Text to colorize.
+        color: Palette name or hexadecimal RGB value.
+        enabled: Whether ANSI color output is enabled.
+
+    Returns:
+        Original text or text wrapped in an ANSI color sequence.
+    """
     if not enabled:
         return value
     code = _PALETTE.get(color.lower())
@@ -66,7 +75,14 @@ def _paint(value: str, color: str, enabled: bool) -> str:
 
 
 def _zone_color(zone: Zone) -> str:
-    """Prefer an explicit metadata color and fall back to the zone type."""
+    """Resolve a zone's configured color or its type's default color.
+
+    Args:
+        zone: Zone whose display color should be resolved.
+
+    Returns:
+        Palette name or hexadecimal color string.
+    """
     if zone.color is not None:
         color = zone.color.lower()
         if color in _PALETTE or (
@@ -77,6 +93,14 @@ def _zone_color(zone: Zone) -> str:
 
 
 def _connection_key(connection: Connection) -> tuple[str, str]:
+    """Normalize endpoint names for direction-independent link lookup.
+
+    Args:
+        connection: Physical connection to normalize.
+
+    Returns:
+        Endpoint names in lexicographic order.
+    """
     return (
         min(connection.zone_a, connection.zone_b),
         max(connection.zone_a, connection.zone_b),
@@ -95,6 +119,15 @@ class TerminalVisualizer:
         output_stream: TextIO | None = None,
         frame_delay: float = 0.35,
     ) -> None:
+        """Create a terminal visualizer for a map and simulation engine.
+
+        Args:
+            map_data: Static map topology and display metadata.
+            engine: Simulation engine supplying current states and history.
+            input_stream: Optional stream used for interactive commands.
+            output_stream: Optional stream receiving rendered frames.
+            frame_delay: Minimum delay between non-interactive frames.
+        """
         self._map_data = map_data
         self._engine = engine
         self._input = input_stream if input_stream is not None else sys.stdin
@@ -105,7 +138,14 @@ class TerminalVisualizer:
         self._paused = False
 
     def render(self, *, color: bool = False) -> str:
-        """Return a complete dashboard frame from the current Engine state."""
+        """Render a complete dashboard frame for the current engine state.
+
+        Args:
+            color: Whether to include ANSI color sequences.
+
+        Returns:
+            Dashboard text for the current simulation turn.
+        """
         states = self._engine.drone_states
         occupancy: Counter[str | None] = Counter(
             state.current_zone
@@ -157,7 +197,11 @@ class TerminalVisualizer:
         return "\n".join(lines)
 
     def _coordinates(self) -> dict[str, tuple[int, int]]:
-        """Use map coordinates, or stable grid positions if they are absent."""
+        """Get zone coordinates or deterministic fallback grid positions.
+
+        Returns:
+            Integer coordinates indexed by zone name.
+        """
         zones = list(self._map_data.zones.values())
         valid = all(
             isinstance(zone.x, int) and isinstance(zone.y, int)
@@ -179,7 +223,16 @@ class TerminalVisualizer:
         occupancy: Counter[str | None],
         color: bool,
     ) -> list[str]:
-        """Draw a compact, coordinate-based ASCII map and its node labels."""
+        """Draw an ASCII map using zone coordinates and current occupancy.
+
+        Args:
+            states: Drone snapshots for the current turn.
+            occupancy: Current drone counts by zone.
+            color: Whether to colorize the topology output.
+
+        Returns:
+            Rendered topology rows, including the zone key.
+        """
         coordinates = self._coordinates()
         xs = [point[0] for point in coordinates.values()]
         ys = [point[1] for point in coordinates.values()]
@@ -189,6 +242,14 @@ class TerminalVisualizer:
         height = max(3, min(13, len(set(ys)) * 2 + 1))
 
         def project(point: tuple[int, int]) -> tuple[int, int]:
+            """Map one source coordinate to its canvas cell.
+
+            Args:
+                point: Integer map coordinate to project.
+
+            Returns:
+                Integer column and row on the topology canvas.
+            """
             x, y = point
             px = 2 if max_x == min_x else 2 + round(
                 (x - min_x) * (width - 4) / (max_x - min_x)
@@ -296,7 +357,13 @@ class TerminalVisualizer:
         start: tuple[int, int],
         end: tuple[int, int],
     ) -> None:
-        """Draw a dotted connection using the integer Bresenham algorithm."""
+        """Draw a dotted line between two canvas points.
+
+        Args:
+            canvas: Mutable character grid to draw on.
+            start: Starting column and row.
+            end: Ending column and row.
+        """
         x0, y0 = start
         x1, y1 = end
         dx, dy = abs(x1 - x0), abs(y1 - y0)
@@ -319,7 +386,15 @@ class TerminalVisualizer:
         occupancy: Counter[str | None],
         color: bool,
     ) -> list[str]:
-        """Show physical zone occupancy and the configured/effective limit."""
+        """Render occupancy and capacity for each physical zone.
+
+        Args:
+            occupancy: Current drone counts by zone.
+            color: Whether to colorize the output.
+
+        Returns:
+            One formatted line per zone.
+        """
         lines = []
         for zone in self._map_data.zones.values():
             used = occupancy[zone.name]
@@ -343,7 +418,16 @@ class TerminalVisualizer:
         last_moves: tuple[PlannedMove, ...],
         color: bool,
     ) -> list[str]:
-        """Show link use from completed moves and ongoing transits."""
+        """Render link use from moves and currently active transits.
+
+        Args:
+            transit_states: Snapshots of drones currently in transit.
+            last_moves: Moves recorded for the latest turn.
+            color: Whether to colorize the output.
+
+        Returns:
+            One formatted line per physical connection.
+        """
         usage: Counter[tuple[str, str]] = Counter()
         started_this_turn: set[int] = set()
         for move in last_moves:
@@ -374,7 +458,15 @@ class TerminalVisualizer:
         states: tuple[DroneSnapshot, ...],
         color: bool,
     ) -> list[str]:
-        """Describe only the moves recorded by the Engine for this turn."""
+        """Render events recorded for the current turn.
+
+        Args:
+            states: Drone snapshots for the current turn.
+            color: Whether to colorize the output.
+
+        Returns:
+            Event lines, or a single no-movement message.
+        """
         moves = self._engine.last_moves
         if not moves:
             return ["  No movement this turn."]
@@ -433,6 +525,12 @@ class TerminalVisualizer:
             )
 
     def _write_frame(self, *, color: bool, clear: bool) -> None:
+        """Render the current frame and optionally clear the terminal first.
+
+        Args:
+            color: Whether to include ANSI color sequences.
+            clear: Whether to emit the terminal clear-screen sequence.
+        """
         if clear:
             self._output.write("\033[?25l\033[2J\033[H")
         self._output.write(self.render(color=color))

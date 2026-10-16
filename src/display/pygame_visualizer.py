@@ -1,4 +1,4 @@
-"""Optional Pygame window for replaying Engine simulation snapshots."""
+"""Render and control an animated view of recorded simulation snapshots."""
 
 import math
 import os
@@ -45,7 +45,14 @@ _NAMED_COLORS = {
 
 
 def metadata_color(zone: Zone) -> tuple[int, int, int]:
-    """Resolve a zone's metadata color or use its type color."""
+    """Resolve a zone's metadata color or use its type color.
+
+    Args:
+        zone: Zone whose display color should be resolved.
+
+    Returns:
+        RGB color tuple.
+    """
     if zone.color is not None:
         value = zone.color.lower()
         if value in _NAMED_COLORS:
@@ -62,7 +69,14 @@ def metadata_color(zone: Zone) -> tuple[int, int, int]:
 
 
 def _display_color(color: tuple[int, int, int]) -> tuple[int, int, int]:
-    """Mute map metadata colors into the Arasaka red and graphite palette."""
+    """Blend a map color into the display's muted graphite palette.
+
+    Args:
+        color: Source RGB color.
+
+    Returns:
+        Muted RGB color tuple.
+    """
     base = (45, 31, 34)
     return tuple(round(channel * 0.48 + shade * 0.52)
                  for channel, shade in zip(color, base))
@@ -71,7 +85,15 @@ def _display_color(color: tuple[int, int, int]) -> tuple[int, int, int]:
 def map_positions(
     map_data: MapData, area: tuple[int, int, int, int]
 ) -> dict[str, tuple[float, float]]:
-    """Place zones from map coordinates or a stable grid fallback."""
+    """Project zones into a display area using map coordinates when possible.
+
+    Args:
+        map_data: Map containing the zones to position.
+        area: Left, top, width, and height of the available drawing area.
+
+    Returns:
+        A mapping from zone name to its pixel coordinates.
+    """
     left, top, width, height = area
     zones = list(map_data.zones.values())
     raw = {zone.name: (zone.x, zone.y) for zone in zones}
@@ -108,7 +130,16 @@ def drone_position(
     state: DroneSnapshot,
     positions: dict[str, tuple[float, float]],
 ) -> tuple[float, float] | None:
-    """Return zone position or midpoint while the Engine says in transit."""
+    """Find a drone's rendered position from its snapshot.
+
+    Args:
+        state: Snapshot for the drone to position.
+        positions: Pixel positions indexed by zone name.
+
+    Returns:
+        Zone position, connection midpoint while in transit, or None if the
+        drone has no current location.
+    """
     if state.transit_connection is not None:
         start, end = state.transit_connection
         start_pos, end_pos = positions[start], positions[end]
@@ -122,7 +153,14 @@ def drone_position(
 def connection_usage(
     states: tuple[DroneSnapshot, ...],
 ) -> Counter[tuple[str, str]]:
-    """Count Engine-reported drones currently traversing each connection."""
+    """Count drones currently traversing each connection.
+
+    Args:
+        states: Drone snapshots for one simulation frame.
+
+    Returns:
+        A counter keyed by normalized endpoint pairs.
+    """
     loads: Counter[tuple[str, str]] = Counter()
     for state in states:
         if state.transit_connection is None:
@@ -133,11 +171,27 @@ def connection_usage(
 
 
 def _connection_key(left: str, right: str) -> tuple[str, str]:
+    """Normalize a connection's endpoints for direction-independent lookup.
+
+    Args:
+        left: Name of one endpoint.
+        right: Name of the other endpoint.
+
+    Returns:
+        The endpoint names in lexicographic order.
+    """
     return (left, right) if left <= right else (right, left)
 
 
 def has_visible_display(driver: str) -> bool:
-    """Return whether SDL selected a driver capable of showing a window."""
+    """Check whether SDL selected a driver capable of showing a window.
+
+    Args:
+        driver: Name reported by SDL for its active display driver.
+
+    Returns:
+        True for a visible display driver; otherwise False.
+    """
     return driver not in {"offscreen", "dummy"}
 
 
@@ -147,12 +201,24 @@ class PygameVisualizer:
     def __init__(
         self, map_data: MapData, engine: Engine, *, map_label: str = ""
     ) -> None:
+        """Store map and engine data for later rendering.
+
+        Args:
+            map_data: Static map whose zones and connections are displayed.
+            engine: Engine containing recorded state snapshots.
+            map_label: Optional label shown in the window header.
+        """
         self._map_data = map_data
         self._engine = engine
         self._map_label = map_label or "Simulation map"
 
     def run(self) -> bool:
-        """Open the Pygame window; return False if Pygame/display is absent."""
+        """Open the Pygame window and run animation playback.
+
+        Returns:
+            True if the visualizer exits normally, or False if Pygame/display
+            support is unavailable.
+        """
         try:
             os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
             import pygame
@@ -171,6 +237,14 @@ class PygameVisualizer:
             return False
 
     def _play(self, pygame: Any) -> bool:
+        """Initialize Pygame and run the snapshot playback loop.
+
+        Args:
+            pygame: Imported Pygame module used for display and events.
+
+        Returns:
+            True when playback exits normally; False for a headless driver.
+        """
         pygame.init()
         screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
         if not has_visible_display(pygame.display.get_driver()):
@@ -266,6 +340,20 @@ class PygameVisualizer:
         progress: float,
         history: tuple[tuple[DroneSnapshot, ...], ...],
     ) -> None:
+        """Draw one simulation frame and its playback controls.
+
+        Args:
+            screen: Active display surface.
+            pygame: Pygame module providing drawing operations.
+            font: Main display font.
+            small: Compact label font.
+            states: Drone snapshots for the current frame.
+            frame_index: Index of the current frame in history.
+            speed: Playback speed multiplier.
+            playing: Whether playback is advancing automatically.
+            progress: Interpolation progress between frames in the range 0–1.
+            history: Recorded snapshots used to interpolate drone positions.
+        """
         width, height = screen.get_size()
         delivered = sum(state.is_delivered for state in states)
         transit = sum(state.transit_connection is not None for state in states)
@@ -415,6 +503,16 @@ def _text(
     *,
     center: bool = False,
 ) -> None:
+    """Render text at a top-left point or centered on a point.
+
+    Args:
+        screen: Surface to draw the rendered text on.
+        font: Font used to render the value.
+        value: Text content to display.
+        point: Pixel coordinates for placement.
+        color: RGB text color.
+        center: Whether ``point`` is the text center instead of its top-left.
+    """
     surface = font.render(value, True, color)
     rect = surface.get_rect()
     if center:

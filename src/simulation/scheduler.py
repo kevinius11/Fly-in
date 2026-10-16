@@ -1,3 +1,5 @@
+"""Plan simultaneous drone movements while respecting map capacities."""
+
 from src.domain.graph import Graph, Edge
 from src.domain.models import ZoneType, Connection
 
@@ -5,25 +7,53 @@ from src.simulation.models import Drone, PlannedMove, MoveKind
 
 
 class Scheduler:
-    """
+    """Choose valid movement plans for one simulation turn.
+
+    The scheduler reads static graph data and current drone states. It does
+    not mutate drones; the engine applies the approved plan.
     """
     def __init__(self, graph: Graph) -> None:
-        """Initialize the scheduler with the map graph."""
+        """Initialize the scheduler with the map graph.
+
+        Args:
+            graph: Static graph used to inspect zones, links, and capacities.
+        """
         self._graph = graph
 
     def is_restricted_zone(self, zone_name: str) -> bool:
-        """Return whether a zone requires a two-turn transit."""
+        """Check whether a zone requires a two-turn transit.
+
+        Args:
+            zone_name: Name of the zone to inspect.
+
+        Returns:
+            True when the zone is restricted; otherwise False.
+        """
         return self._graph.get_zone(zone_name).zone_type == ZoneType.RESTRICTED
 
     def is_blocked_zone(self, zone_name: str) -> bool:
-        """Return whether a zone is inaccessible to drones."""
+        """Check whether a zone is inaccessible to drones.
+
+        Args:
+            zone_name: Name of the zone to inspect.
+
+        Returns:
+            True when the zone is blocked; otherwise False.
+        """
         return self._graph.get_zone(zone_name).zone_type == ZoneType.BLOCKED
 
     def plan_turn(
             self,
             drones: list[Drone],
     ) -> list[PlannedMove]:
-        """Plan valid movements for the current simulation turn."""
+        """Plan movements that satisfy zone and link capacities.
+
+        Args:
+            drones: Current drone states to plan movements for.
+
+        Returns:
+            Approved moves for the turn, in scheduling order.
+        """
         candidates = self._collect_candidates(drones)
         approved_moves = self._select_compatible_moves(candidates, drones)
         return approved_moves
@@ -32,7 +62,13 @@ class Scheduler:
             self,
             drones: list[Drone],
     ) -> list[PlannedMove]:
-        """
+        """Create movement candidates for drones that can advance.
+
+        Args:
+            drones: Current drone states to inspect.
+
+        Returns:
+            Candidate moves, including due transit completions.
         """
         candidates: list[PlannedMove] = []
 
@@ -95,7 +131,15 @@ class Scheduler:
             candidates: list[PlannedMove],
             drones: list[Drone],
     ) -> list[PlannedMove]:
-        """Select movements that respect zone and connectionn capacities"""
+        """Select movements that respect zone and connection capacities.
+
+        Args:
+            candidates: Potential moves collected for this turn.
+            drones: Current drone states used to calculate occupancy.
+
+        Returns:
+            A compatible subset of candidates.
+        """
         approved_movements: list[PlannedMove] = []
 
         complete_transits = [
@@ -151,7 +195,19 @@ class Scheduler:
             moves: list[PlannedMove],
             drones: list[Drone],
     ) -> dict[str, int]:
-        """Calculate zone occupancy after a simultaneous set of movements."""
+        """Calculate zone occupancy after simultaneous movements.
+
+        Args:
+            moves: Moves considered for the turn.
+            drones: Current drone states before those moves are applied.
+
+        Returns:
+            Projected occupancy indexed by zone name.
+
+        Raises:
+            ValueError: If a move references an unknown origin or destination,
+                or requires an origin but does not provide one.
+        """
         occupancy: dict[str, int] = {}
 
         # Contamos drones menos los que esten entregados o en transito
@@ -192,7 +248,14 @@ class Scheduler:
             self,
             occupancy: dict[str, int],
     ) -> bool:
-        """Check whether final zone occupancy respects zone capacities."""
+        """Check whether projected occupancy respects zone capacities.
+
+        Args:
+            occupancy: Projected drone count for each zone.
+
+        Returns:
+            True if all counts satisfy the applicable capacity limits.
+        """
         for zone_name, count in occupancy.items():
             if count < 0:  # Ocupacion negativa
                 return False
@@ -212,14 +275,29 @@ class Scheduler:
         moves: list[PlannedMove],
         drones: list[Drone],
     ) -> bool:
-        """Check whether connection usage respects link capacities."""
+        """Check whether planned connection use respects link capacity.
+
+        Args:
+            moves: Moves being evaluated.
+            drones: Current drones, including any active transits.
+
+        Returns:
+            True if no connection exceeds its capacity.
+        """
         return self._find_connection_capacity_violation(moves, drones) is None
 
     def _find_zone_capacity_violation(
         self,
         occupancy: dict[str, int],
     ) -> str | None:
-        """Return a zone violating occupancy constraints, if any."""
+        """Find the first zone that violates occupancy constraints.
+
+        Args:
+            occupancy: Projected drone count for each zone.
+
+        Returns:
+            The violating zone name, or None when occupancy is valid.
+        """
         for zone_name, count in occupancy.items():
             # Chequeo negativos
             if count < 0:
@@ -242,7 +320,15 @@ class Scheduler:
         moves: list[PlannedMove],
         drones: list[Drone],
     ) -> Connection | None:
-        """Return an over-capacity connection, if any."""
+        """Find a connection whose projected use exceeds its capacity.
+
+        Args:
+            moves: Moves being evaluated.
+            drones: Current drones, including any active transits.
+
+        Returns:
+            The violating connection, or None when all links are valid.
+        """
         connection_usage: dict[frozenset[str], int] = {}
         connection_capacities: dict[frozenset[str], int] = {}
         connections: dict[frozenset[str], Connection] = {}
@@ -277,7 +363,15 @@ class Scheduler:
         moves: list[PlannedMove],
         drones: list[Drone],
     ) -> dict[str, int]:
-        """Count future arrivals reserved by active and planned transits."""
+        """Count zone arrivals reserved by active and planned transits.
+
+        Args:
+            moves: Moves planned for the current turn.
+            drones: Current drones and their active transits.
+
+        Returns:
+            Future arrival counts indexed by destination zone name.
+        """
         # Iniciamos contador a 0 para todas las zonas del grafo
         reserved: dict[str, int] = {
             zone_name: 0

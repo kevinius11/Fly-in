@@ -1,3 +1,5 @@
+"""Command-line entry point for running Fly-in simulations."""
+
 import argparse
 import sys
 from pathlib import Path
@@ -14,7 +16,17 @@ from src.simulation.scheduler import Scheduler
 
 
 def create_engine(map_data: MapData) -> Engine:
-    """Build a simulation with drones alternating across up to two routes."""
+    """Build an engine and assign drones across the best available routes.
+
+    Args:
+        map_data: Parsed map containing the drone count and route endpoints.
+
+    Returns:
+        An initialized simulation engine.
+
+    Raises:
+        ValueError: If no route connects the map's start and end hubs.
+    """
     graph = Graph(map_data)
     routes = find_k_shortest_paths(
         graph,
@@ -39,7 +51,15 @@ def create_engine(map_data: MapData) -> Engine:
 
 
 def _format_turn(moves: list[PlannedMove]) -> str:
-    """Format only the drones that moved during one turn."""
+    """Format the moves recorded for one simulation turn.
+
+    Args:
+        moves: Planned moves completed during the turn.
+
+    Returns:
+        A space-separated summary, or an empty string when there were no
+        moves.
+    """
     tokens: list[str] = []
     for move in moves:
         if move.kind == MoveKind.START_TRANSIT:
@@ -53,7 +73,14 @@ def _format_turn(moves: list[PlannedMove]) -> str:
 
 
 def main() -> int:
-    """Entry point for the Fly-in drone simulation."""
+    """Parse command-line options and run the requested simulation.
+
+    Returns:
+        Zero on success, or one when map loading or simulation fails.
+
+    Raises:
+        SystemExit: If argument parsing fails or help is requested.
+    """
     parser = argparse.ArgumentParser(
         description="Run a Fly-in map simulation.",
     )
