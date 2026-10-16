@@ -17,14 +17,20 @@ The visualizer uses Pygame. The development checks use `pytest`, `flake8`, and
 
 ```sh
 make
-make run MAP=maps/easy/01_linear_path.txt
+make run
 ```
 
 Running `make` creates `.venv` if needed and installs the project and its
 development tools. `make install` does the same explicitly.
 
 Run these commands from the project directory. When `MAP` is omitted,
-`make run` uses `maps/easy/01_linear_path.txt`.
+`make run` uses `maps/hard/01_maze_nightmare.txt` by default. Choose another
+map with `make run MAP=maps/medium/02_circular_loop.txt` (or `MAPS=...`).
+The direct CLI also accepts `--map` or `--maps`, for example:
+
+```sh
+.venv/bin/python main.py --map maps/easy/02_simple_fork.txt --visualize
+```
 
 Or run it directly:
 

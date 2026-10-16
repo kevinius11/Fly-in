@@ -1,5 +1,6 @@
 import argparse
 import sys
+from pathlib import Path
 
 from src.algorithms.pathfinding import find_k_shortest_paths
 from src.domain.graph import Graph
@@ -56,7 +57,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Run a Fly-in map simulation.",
     )
-    parser.add_argument("map_file", help="Path to the map file to simulate")
+    parser.add_argument(
+        "map_file", nargs="?", help="Path to the map file to simulate"
+    )
+    parser.add_argument(
+        "--map", "--maps", dest="map_option",
+        help="Path to the map file to simulate",
+    )
     parser.add_argument(
         "--visualize",
         action="store_true",
@@ -68,9 +75,14 @@ def main() -> int:
         help="Show the interactive terminal dashboard",
     )
     args = parser.parse_args()
+    if args.map_file and args.map_option:
+        parser.error("provide the map path either positionally or with --map")
+    map_file = args.map_option or args.map_file
+    if map_file is None:
+        parser.error("a map path is required; use --map PATH")
 
     try:
-        map_data = MapParser().parse_file(args.map_file)
+        map_data = MapParser().parse_file(map_file)
         engine = create_engine(map_data)
         if args.terminal_visualize:
             TerminalVisualizer(map_data, engine).run()
@@ -81,7 +93,9 @@ def main() -> int:
         if args.visualize:
             from src.display.pygame_visualizer import PygameVisualizer
 
-            PygameVisualizer(map_data, engine).run()
+            PygameVisualizer(
+                map_data, engine, map_label=Path(map_file).name
+            ).run()
     except (ParsingError, OSError, RuntimeError, ValueError) as error:
         message = f"Error: {error}"
         if (args.visualize or args.terminal_visualize) and sys.stderr.isatty():

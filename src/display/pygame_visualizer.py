@@ -12,8 +12,8 @@ from src.simulation.engine import Engine
 from src.simulation.models import DroneSnapshot
 
 
-WIDTH = 1180
-HEIGHT = 760
+WIDTH = 1440
+HEIGHT = 900
 _BACKGROUND = (15, 16, 18)
 _PANEL = (25, 26, 29)
 _GRID = (48, 49, 53)
@@ -144,9 +144,12 @@ def has_visible_display(driver: str) -> bool:
 class PygameVisualizer:
     """Display a controllable animation of recorded Engine state."""
 
-    def __init__(self, map_data: MapData, engine: Engine) -> None:
+    def __init__(
+        self, map_data: MapData, engine: Engine, *, map_label: str = ""
+    ) -> None:
         self._map_data = map_data
         self._engine = engine
+        self._map_label = map_label or "Simulation map"
 
     def run(self) -> bool:
         """Open the Pygame window; return False if Pygame/display is absent."""
@@ -179,7 +182,9 @@ class PygameVisualizer:
                 file=sys.stderr,
             )
             return False
-        pygame.display.set_caption("ARASAKA CORPORATION — Fly-in Network")
+        pygame.display.set_caption(
+            f"ARASAKA CORPORATION — {self._map_label}"
+        )
         backdrop_path = (
             Path(__file__).resolve().parents[2]
             / "assets"
@@ -269,7 +274,9 @@ class PygameVisualizer:
                 (41, 39), (37, 48), (30, 48), (38, 31)]
         pygame.draw.polygon(screen, _RED, logo, 2)
         _text(screen, font, "ARASAKA", (63, 19), _WHITE)
-        _text(screen, small, "CORPORATION  /  FLY-IN NETWORK", (64, 48), _RED)
+        _text(screen, small,
+              f"CORPORATION  /  MAP: {self._map_label.upper()}",
+              (64, 48), _RED)
         _text(screen, small, f"TURN  {frame_index:02d}", (width - 155, 27),
               _WHITE)
         summary = (
@@ -280,8 +287,14 @@ class PygameVisualizer:
         pygame.draw.line(screen, _GRID, (30, 82), (width - 30, 82), 1)
 
         map_left, map_top = 30, 108
-        side_width = min(330, max(270, int(width * 0.29)))
-        gap = 28
+        zones = list(self._map_data.zones.values())
+        xs = [zone.x for zone in zones]
+        coordinate_width = max(xs) - min(xs) if xs else 0
+        # Long maps need the sidebar's space so every hub and connection can
+        # stay visible at once inside the fixed-size window.
+        show_sidebar = coordinate_width <= 12
+        side_width = min(330, max(270, int(width * 0.29))) if show_sidebar else 0
+        gap = 28 if show_sidebar else 0
         map_width = width - map_left - side_width - gap - 30
         map_height = max(250, height - 165)
         map_area = (map_left, map_top, map_width, map_height)
@@ -319,8 +332,17 @@ class PygameVisualizer:
                 else zone.zone_type.value[0].upper()
             )
             _text(screen, small, mark, point, color, center=True)
-            _text(screen, small, zone.name,
-                  (point[0], point[1] + 27), _WHITE, center=True)
+            if show_sidebar:
+                _text(screen, small, zone.name,
+                      (point[0], point[1] + 27), _WHITE, center=True)
+            else:
+                label = pygame.transform.rotate(
+                    small.render(zone.name, True, _WHITE), 90
+                )
+                label_rect = label.get_rect(
+                    center=(point[0] + 24, point[1] + 4)
+                )
+                screen.blit(label, label_rect)
             place_count = (
                 f"{usage[zone.name]} here"
                 if zone.is_start or zone.is_end
@@ -357,23 +379,24 @@ class PygameVisualizer:
                       _AMBER, center=True)
 
         panel_x = map_area[0] + map_area[2] + gap
-        pygame.draw.rect(screen, _RED, (panel_x, map_top, 3, 21))
-        _text(screen, font, "Flight log", (panel_x + 12, map_top), _WHITE)
-        y = map_top + 31
-        moves = self._engine.history[frame_index - 1] if frame_index else []
-        if not moves:
-            _text(screen, small, "No activity recorded", (panel_x + 12, y),
-                  _MUTED)
-        for move in moves[-5:]:
-            _text(screen, small,
-                  f"Drone {move.drone_id}  →  {move.destination}",
-                  (panel_x + 12, y),
-                  _AMBER if move.kind.value == "start_transit" else _WHITE)
-            y += 19
-        _text(screen, small, "Place labels show drones / limit.",
-              (panel_x, height - 75), _MUTED)
-        _text(screen, small, "Link labels appear while in use.",
-              (panel_x, height - 55), _MUTED)
+        if show_sidebar:
+            pygame.draw.rect(screen, _RED, (panel_x, map_top, 3, 21))
+            _text(screen, font, "Flight log", (panel_x + 12, map_top), _WHITE)
+            y = map_top + 31
+            moves = self._engine.history[frame_index - 1] if frame_index else []
+            if not moves:
+                _text(screen, small, "No activity recorded", (panel_x + 12, y),
+                      _MUTED)
+            for move in moves[-5:]:
+                _text(screen, small,
+                      f"Drone {move.drone_id}  →  {move.destination}",
+                      (panel_x + 12, y),
+                      _AMBER if move.kind.value == "start_transit" else _WHITE)
+                y += 19
+            _text(screen, small, "Place labels show drones / limit.",
+                  (panel_x, height - 75), _MUTED)
+            _text(screen, small, "Link labels appear while in use.",
+                  (panel_x, height - 55), _MUTED)
         status = "PLAYING" if playing else "PAUSED"
         pygame.draw.line(screen, _GRID, (30, height - 39),
                          (width - 30, height - 39), 1)

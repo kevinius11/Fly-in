@@ -1,7 +1,10 @@
 PYTHON = python3
 VENV = .venv
 PY = $(VENV)/bin/python
-MAP ?= maps/easy/01_linear_path.txt
+MAP = maps/hard/01_maze_nightmare.txt
+ifneq ($(MAPS),)
+MAP = $(MAPS)
+endif
 
 .DEFAULT_GOAL := install
 .PHONY: install run debug clean lint
@@ -13,10 +16,10 @@ install: $(PY)
 	$(PY) -m pip install -e . flake8 mypy pytest
 
 run: install
-	$(PY) main.py --visualize "$(MAP)"
+	$(PY) main.py --map "$(MAP)" --visualize
 
 debug: install
-	$(PY) -m pdb main.py "$(MAP)"
+	$(PY) -m pdb main.py --map "$(MAP)"
 
 lint: install
 	$(VENV)/bin/flake8 .
