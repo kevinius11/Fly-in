@@ -85,3 +85,32 @@ def test_cli_reports_no_route_as_controlled_error(
     assert result == 1
     assert captured.out == ""
     assert "Error: No route exists" in captured.err
+
+
+def test_cli_visualize_prints_output_without_a_graphical_display(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    """A missing graphical display does not change terminal output."""
+    map_file = tmp_path / "visualized.map"
+    map_file.write_text(
+        "nb_drones: 1\n"
+        "start_hub: start 0 0\n"
+        "end_hub: goal 1 0\n"
+        "connection: start-goal\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        sys, "argv", ["main.py", "--visualize", str(map_file)]
+    )
+    from src.display.pygame_visualizer import PygameVisualizer
+
+    monkeypatch.setattr(PygameVisualizer, "run", lambda self: True)
+
+    result = main()
+
+    captured = capsys.readouterr()
+    assert result == 0
+    assert captured.out == "D1-goal\n"
+    assert captured.err == ""

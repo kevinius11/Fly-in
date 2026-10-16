@@ -1,4 +1,10 @@
-from src.simulation.models import Drone, MoveKind, PlannedMove, Transit
+from src.simulation.models import (
+    Drone,
+    DroneSnapshot,
+    MoveKind,
+    PlannedMove,
+    Transit,
+)
 
 from src.simulation.scheduler import Scheduler
 
@@ -21,6 +27,7 @@ class Engine:
         self._drones = list(drones)
         self._turns_elapsed = 0
         self._history: list[list[PlannedMove]] = []
+        self._state_history = [self.drone_states]
 
     def _apply_moves(
             self,
@@ -164,6 +171,7 @@ class Engine:
 
         self._history.append(list(moves))
         self._turns_elapsed += 1
+        self._state_history.append(self.drone_states)
 
     def all_drones_delivered(self) -> bool:
         """Return whether all drones have reached their destination."""
@@ -178,6 +186,49 @@ class Engine:
     def history(self) -> list[list[PlannedMove]]:
         """Return a copy of the recorded movement history."""
         return [turn.copy() for turn in self._history]
+
+    @property
+    def drone_states(self) -> tuple[DroneSnapshot, ...]:
+        """Return immutable snapshots of every drone's current state."""
+        snapshots: list[DroneSnapshot] = []
+        for drone in self._drones:
+            transit = drone.transit
+            transit_connection = None
+            transit_origin = None
+            transit_destination = None
+            transit_turns_remaining = None
+            if transit is not None:
+                transit_connection = (
+                    transit.connection.zone_a,
+                    transit.connection.zone_b,
+                )
+                transit_origin = drone.path[drone.path_index]
+                transit_destination = transit.destination
+                transit_turns_remaining = transit.turns_remaining
+
+            snapshots.append(DroneSnapshot(
+                drone_id=drone.drone_id,
+                current_zone=drone.current_zone,
+                next_zone=drone.next_zone,
+                is_delivered=drone.is_delivered,
+                transit_origin=transit_origin,
+                transit_connection=transit_connection,
+                transit_destination=transit_destination,
+                transit_turns_remaining=transit_turns_remaining,
+            ))
+        return tuple(snapshots)
+
+    @property
+    def last_moves(self) -> tuple[PlannedMove, ...]:
+        """Return the moves completed in the most recent simulation turn."""
+        if not self._history:
+            return ()
+        return tuple(self._history[-1])
+
+    @property
+    def state_history(self) -> tuple[tuple[DroneSnapshot, ...], ...]:
+        """Return immutable drone snapshots from turn zero through now."""
+        return tuple(self._state_history)
 
     def run(self) -> list[list[PlannedMove]]:
         """Run the simulation until delivery or deadlock."""

@@ -10,8 +10,8 @@ turn, with tokens only for drones that moved.
 - Python 3.10 or newer
 - `make` for the convenience commands below
 
-The application has no runtime third-party dependencies. The development
-checks use `pytest`, `flake8`, and `mypy`.
+The visualizer uses Pygame. The development checks use `pytest`, `flake8`, and
+`mypy`.
 
 ## Setup and run
 
@@ -20,11 +20,40 @@ make install
 make run MAP=maps/easy/01_linear_path.txt
 ```
 
+When `MAP` is omitted, `make run` uses
+`maps/easy/01_linear_path.txt`. Relative map paths are resolved from the
+project root, even when Make is invoked from another directory.
+
 Or run it directly:
 
 ```sh
 .venv/bin/python main.py maps/easy/01_linear_path.txt
 ```
+
+`make run` prints the normal turn output in the terminal and opens the animated
+Pygame visualizer in a separate window. The equivalent direct command is:
+
+```sh
+.venv/bin/python main.py --visualize maps/easy/01_linear_path.txt
+```
+
+The window replays the Engine's recorded drone positions over the map. It uses
+a dark neon palette and metadata colors, and shows zone types, restricted
+transit progress, zone occupancy, connection capacity, turn counters, and
+recent events. Map coordinates determine node placement; if coordinates
+overlap, a stable grid layout is used. Start and end zones show unlimited
+effective capacity because the scheduler does not constrain hub occupancy.
+
+Use Space to pause or resume, N to step a turn, +/- to change speed, R to
+restart, and Q or Escape to close. To use the terminal-only dashboard instead,
+run:
+
+```sh
+.venv/bin/python main.py --terminal-visualize maps/easy/01_linear_path.txt
+```
+
+If Pygame cannot open a graphical display, it reports the problem and leaves
+the standard terminal output available.
 
 Each output line is a simulation turn. A normal move or arrival is printed as
 `D<ID>-<zone>`; entering a restricted zone starts a two-turn transit and is
@@ -64,8 +93,8 @@ precede connection declarations.
   with Yen's algorithm.
 - `src/simulation/` assigns routes, schedules capacity-compatible moves, and
   advances drone/transit state. Restricted destinations take two turns.
-- `src/display/` is reserved for visualization; the optional live visualizer
-  is not implemented yet.
+- `src/display/visualizer.py` presents snapshots from the `Engine`; it does
+  not plan or apply moves itself.
 - `main.py` wires these components together and formats standard CLI output.
 
 The benchmark policy comparison in `scripts/compare_routing_policies.py` is

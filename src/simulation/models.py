@@ -131,6 +131,20 @@ class Drone:
         return (self.transit is None and self.path_index == len(self.path) - 1)
 
 
+@dataclass(frozen=True)
+class DroneSnapshot:
+    """Read-only view of a drone's state for presentation and monitoring."""
+
+    drone_id: int
+    current_zone: str | None
+    next_zone: str | None
+    is_delivered: bool
+    transit_origin: str | None
+    transit_connection: tuple[str, str] | None
+    transit_destination: str | None
+    transit_turns_remaining: int | None
+
+
 class MoveKind(Enum):
     """Define the actions available to a planned drone movement."""
     MOVE = "move"
