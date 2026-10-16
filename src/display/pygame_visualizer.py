@@ -389,7 +389,7 @@ class PygameVisualizer:
                       _MUTED)
             for move in moves[-5:]:
                 _text(screen, small,
-                      f"Drone {move.drone_id}  →  {move.destination}",
+                      f"Drone {move.drone_id}  ->  {move.destination}",
                       (panel_x + 12, y),
                       _AMBER if move.kind.value == "start_transit" else _WHITE)
                 y += 19
