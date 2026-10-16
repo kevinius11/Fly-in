@@ -1,28 +1,27 @@
 PYTHON = python3
-ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
-VENV = $(ROOT)/.venv
-BIN = $(VENV)/bin
+VENV = .venv
+PY = $(VENV)/bin/python
 MAP ?= maps/easy/01_linear_path.txt
 
+.DEFAULT_GOAL := install
 .PHONY: install run debug clean lint
 
-$(VENV):
+$(PY):
 	$(PYTHON) -m venv $(VENV)
 
-install: $(VENV)
-	cd "$(ROOT)" && "$(BIN)/python" -m pip install -e . flake8 mypy pytest
+install: $(PY)
+	$(PY) -m pip install -e . flake8 mypy pytest
 
-run: $(VENV)
-	cd "$(ROOT)" && "$(BIN)/python" main.py --visualize "$(MAP)"
+run: install
+	$(PY) main.py --visualize "$(MAP)"
 
-debug: $(VENV)
-	cd "$(ROOT)" && "$(BIN)/python" -m pdb main.py "$(MAP)"
+debug: install
+	$(PY) -m pdb main.py "$(MAP)"
+
+lint: install
+	$(VENV)/bin/flake8 .
+	$(VENV)/bin/mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
 
 clean:
-	rm -rf "$(ROOT)/__pycache__" "$(ROOT)/.mypy_cache" \
-		"$(ROOT)/.pytest_cache" "$(VENV)"
-	find "$(ROOT)" -type d -name "__pycache__" -exec rm -rf {} +
-
-lint: $(VENV)
-	cd "$(ROOT)" && "$(BIN)/flake8" .
-	cd "$(ROOT)" && "$(BIN)/mypy" . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
+	rm -rf __pycache__ .mypy_cache .pytest_cache $(VENV)
+	find . -type d -name "__pycache__" -exec rm -rf {} +

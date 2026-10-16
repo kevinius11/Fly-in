@@ -16,13 +16,15 @@ The visualizer uses Pygame. The development checks use `pytest`, `flake8`, and
 ## Setup and run
 
 ```sh
-make install
+make
 make run MAP=maps/easy/01_linear_path.txt
 ```
 
-When `MAP` is omitted, `make run` uses
-`maps/easy/01_linear_path.txt`. Relative map paths are resolved from the
-project root, even when Make is invoked from another directory.
+Running `make` creates `.venv` if needed and installs the project and its
+development tools. `make install` does the same explicitly.
+
+Run these commands from the project directory. When `MAP` is omitted,
+`make run` uses `maps/easy/01_linear_path.txt`.
 
 Or run it directly:
 
