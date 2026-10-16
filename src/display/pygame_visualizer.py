@@ -4,6 +4,7 @@ import math
 import os
 import sys
 from collections import Counter
+from pathlib import Path
 from typing import Any
 
 from src.domain.models import MapData, Zone, ZoneType
@@ -13,24 +14,25 @@ from src.simulation.models import DroneSnapshot
 
 WIDTH = 1180
 HEIGHT = 760
-_BACKGROUND = (7, 12, 22)
-_PANEL = (12, 21, 35)
-_GRID = (18, 39, 57)
-_CYAN = (22, 224, 255)
-_MAGENTA = (255, 69, 212)
-_AMBER = (255, 194, 71)
-_RED = (255, 64, 94)
-_WHITE = (226, 240, 255)
-_MUTED = (117, 143, 166)
+_BACKGROUND = (15, 16, 18)
+_PANEL = (25, 26, 29)
+_GRID = (48, 49, 53)
+_CYAN = (160, 164, 170)
+_MAGENTA = (192, 190, 190)
+_AMBER = (220, 163, 79)
+_RED = (211, 35, 49)
+_WHITE = (235, 233, 229)
+_MUTED = (139, 140, 144)
 _DRONE_COLORS = (
-    _CYAN, _MAGENTA, _AMBER, (125, 255, 154),
-    (117, 141, 255), (245, 130, 255), (255, 120, 97),
+    (211, 35, 49), (232, 82, 89), (174, 28, 42),
+    (241, 119, 120), (190, 48, 62), (220, 163, 79),
+    (210, 210, 207),
 )
 _ZONE_COLORS = {
-    ZoneType.NORMAL: _CYAN,
-    ZoneType.PRIORITY: _MAGENTA,
-    ZoneType.RESTRICTED: _AMBER,
-    ZoneType.BLOCKED: _RED,
+    ZoneType.NORMAL: (190, 191, 194),
+    ZoneType.PRIORITY: (211, 35, 49),
+    ZoneType.RESTRICTED: (220, 163, 79),
+    ZoneType.BLOCKED: (115, 48, 54),
 }
 _NAMED_COLORS = {
     "cyan": _CYAN, "magenta": _MAGENTA, "amber": _AMBER,
@@ -57,6 +59,13 @@ def metadata_color(zone: Zone) -> tuple[int, int, int]:
             except ValueError:
                 pass
     return _ZONE_COLORS[zone.zone_type]
+
+
+def _display_color(color: tuple[int, int, int]) -> tuple[int, int, int]:
+    """Mute map metadata colors into the Arasaka red and graphite palette."""
+    base = (45, 31, 34)
+    return tuple(round(channel * 0.48 + shade * 0.52)
+                 for channel, shade in zip(color, base))
 
 
 def map_positions(
@@ -170,7 +179,18 @@ class PygameVisualizer:
                 file=sys.stderr,
             )
             return False
-        pygame.display.set_caption("FLY-IN // NEON CONTROL")
+        pygame.display.set_caption("ARASAKA CORPORATION — Fly-in Network")
+        backdrop_path = (
+            Path(__file__).resolve().parents[2]
+            / "assets"
+            / "arasaka_wallpaper.jpg"
+        )
+        backdrop_image = (
+            pygame.image.load(str(backdrop_path)).convert()
+            if backdrop_path.is_file() else None
+        )
+        backdrop_size: tuple[int, int] | None = None
+        backdrop_surface = None
         clock = pygame.time.Clock()
         font = pygame.font.Font(None, 22)
         small = pygame.font.Font(None, 16)
@@ -212,6 +232,15 @@ class PygameVisualizer:
                         elapsed = 0.65
                         playing = False
             screen.fill(_BACKGROUND)
+            if backdrop_image is not None:
+                size = screen.get_size()
+                if size != backdrop_size:
+                    backdrop_surface = pygame.transform.smoothscale(
+                        backdrop_image, size
+                    )
+                    backdrop_surface.set_alpha(132)
+                    backdrop_size = size
+                screen.blit(backdrop_surface, (0, 0))
             self._draw(screen, pygame, font, small, history[frame_index],
                        frame_index, speed, playing,
                        min(elapsed / 0.65, 1.0), history)
@@ -233,47 +262,48 @@ class PygameVisualizer:
         history: tuple[tuple[DroneSnapshot, ...], ...],
     ) -> None:
         width, height = screen.get_size()
-        pygame.draw.rect(
-            screen, _PANEL, (18, 18, width - 36, 76), border_radius=8
-        )
-        _text(screen, font, "FLY-IN // NEON CONTROL", (35, 29), _CYAN)
         delivered = sum(state.is_delivered for state in states)
         transit = sum(state.transit_connection is not None for state in states)
-        _text(screen, small,
-              f"TURN {frame_index:03d}    DELIVERED {delivered}/{len(states)}"
-              f"    ACTIVE {len(states) - delivered - transit}"
-              f"    IN TRANSIT {transit}", (38, 62), _WHITE)
-        map_area = (25, 118, int(width * 0.68), height - 160)
-        pygame.draw.rect(screen, _PANEL,
-                         (map_area[0], map_area[1], map_area[2], map_area[3]),
-                         border_radius=8)
-        for x in range(map_area[0], map_area[0] + map_area[2], 28):
-            pygame.draw.line(screen, _GRID, (x, map_area[1]),
-                             (x, map_area[1] + map_area[3]))
-        for y in range(map_area[1], map_area[1] + map_area[3], 28):
-            pygame.draw.line(screen, _GRID, (map_area[0], y),
-                             (map_area[0] + map_area[2], y))
+        underway = len(states) - delivered
+        logo = [(31, 25), (42, 25), (52, 48), (45, 48),
+                (41, 39), (37, 48), (30, 48), (38, 31)]
+        pygame.draw.polygon(screen, _RED, logo, 2)
+        _text(screen, font, "ARASAKA", (63, 19), _WHITE)
+        _text(screen, small, "CORPORATION  /  FLY-IN NETWORK", (64, 48), _RED)
+        _text(screen, small, f"TURN  {frame_index:02d}", (width - 155, 27),
+              _WHITE)
+        summary = (
+            f"{delivered} of {len(states)} drones delivered   ·   "
+            f"{underway} still travelling   ·   {transit} on restricted links"
+        )
+        _text(screen, small, summary, (width - 370, 54), _MUTED)
+        pygame.draw.line(screen, _GRID, (30, 82), (width - 30, 82), 1)
+
+        map_left, map_top = 30, 108
+        side_width = min(330, max(270, int(width * 0.29)))
+        gap = 28
+        map_width = width - map_left - side_width - gap - 30
+        map_height = max(250, height - 165)
+        map_area = (map_left, map_top, map_width, map_height)
         positions = map_positions(self._map_data, map_area)
         loads = connection_usage(states)
         for connection in self._map_data.connections:
             start = positions[connection.zone_a]
             end = positions[connection.zone_b]
             pygame.draw.line(
-                screen, (41, 73, 91),
+                screen, (91, 91, 83),
                 tuple(round(value) for value in start),
-                tuple(round(value) for value in end), 3,
+                tuple(round(value) for value in end), 2,
             )
             middle = ((start[0] + end[0]) / 2, (start[1] + end[1]) / 2)
             key = _connection_key(connection.zone_a, connection.zone_b)
             used = loads[key]
-            load_color = (
-                _RED
-                if used >= connection.max_link_capacity and used
-                else _MUTED
-            )
-            _text(screen, small,
-                  f"{used}/{connection.max_link_capacity}",
-                  middle, load_color, center=True)
+            if used:
+                _text(
+                    screen, small,
+                    f"{used}/{connection.max_link_capacity}",
+                    middle, _AMBER, center=True,
+                )
         usage: Counter[str] = Counter(
             state.current_zone for state in states
             if state.current_zone is not None
@@ -281,25 +311,23 @@ class PygameVisualizer:
         for zone in self._map_data.zones.values():
             zone_position = positions[zone.name]
             point = (round(zone_position[0]), round(zone_position[1]))
-            color = metadata_color(zone)
-            pygame.draw.circle(screen, color, point, 20, 2)
-            pygame.draw.circle(screen, _PANEL, point, 15)
+            color = _display_color(metadata_color(zone))
+            pygame.draw.circle(screen, color, point, 17, 2)
+            pygame.draw.circle(screen, _BACKGROUND, point, 13)
             mark = (
                 "S" if zone.is_start else "E" if zone.is_end
                 else zone.zone_type.value[0].upper()
             )
             _text(screen, small, mark, point, color, center=True)
             _text(screen, small, zone.name,
-                  (point[0], point[1] + 29), _WHITE, center=True)
-            cap = "∞" if zone.is_start or zone.is_end else str(zone.max_drones)
-            capacity_color = (
-                _RED
-                if not (zone.is_start or zone.is_end)
-                and usage[zone.name] >= zone.max_drones
-                else _MUTED
+                  (point[0], point[1] + 27), _WHITE, center=True)
+            place_count = (
+                f"{usage[zone.name]} here"
+                if zone.is_start or zone.is_end
+                else f"{usage[zone.name]}/{zone.max_drones} here"
             )
-            _text(screen, small, f"{usage[zone.name]}/{cap}",
-                  (point[0], point[1] + 43), capacity_color, center=True)
+            _text(screen, small, place_count,
+                  (point[0], point[1] + 40), _MUTED, center=True)
         previous_states = {
             state.drone_id: state
             for state in history[frame_index - 1]
@@ -317,57 +345,42 @@ class PygameVisualizer:
                 previous[1] + (target[1] - previous[1]) * progress,
             )
             color = _DRONE_COLORS[(state.drone_id - 1) % len(_DRONE_COLORS)]
-            x, y = round(drone_center[0]), round(drone_center[1] - 26)
-            pygame.draw.circle(screen, color, (x, y), 9)
-            _text(screen, small, f"{state.drone_id}", (x, y), _BACKGROUND,
+            x, y = round(drone_center[0]), round(drone_center[1] - 24)
+            pygame.draw.circle(screen, _BACKGROUND, (x, y), 11)
+            pygame.draw.circle(screen, color, (x, y), 8)
+            _text(screen, small, f"{state.drone_id}", (x, y), _PANEL,
                   center=True)
             if state.transit_turns_remaining is not None:
-                progress = 2 - state.transit_turns_remaining
-                _text(screen, small, f"TRANSIT {progress}/2", (x, y - 15),
+                transit_progress = 2 - state.transit_turns_remaining
+                _text(screen, small,
+                      f"slow link · {transit_progress}/2", (x, y - 15),
                       _AMBER, center=True)
-        panel_x = map_area[0] + map_area[2] + 18
-        pygame.draw.rect(screen, _PANEL,
-                         (panel_x, 118, width - panel_x - 25, height - 160),
-                         border_radius=8)
-        y = 140
-        _text(screen, font, "ZONE CAPACITY", (panel_x + 16, y), _MAGENTA)
-        y += 29
-        for zone in self._map_data.zones.values():
-            cap = "∞" if zone.is_start or zone.is_end else str(zone.max_drones)
-            _text(screen, small,
-                  f"{zone.name}: {usage[zone.name]}/{cap}",
-                  (panel_x + 16, y), _WHITE)
-            y += 21
-        y += 14
-        _text(screen, font, "CONNECTION LOAD", (panel_x + 16, y), _AMBER)
-        y += 28
-        for connection in self._map_data.connections:
-            key = _connection_key(connection.zone_a, connection.zone_b)
-            used = loads[key]
-            _text(
-                screen, small,
-                f"{connection.zone_a} - {connection.zone_b}: "
-                f"{used}/{connection.max_link_capacity}",
-                (panel_x + 16, y),
-                (_RED if used >= connection.max_link_capacity and used
-                 else _WHITE),
-            )
-            y += 19
-        y += 10
-        _text(screen, font, "EVENT LOG", (panel_x + 16, y), _CYAN)
-        y += 28
+
+        panel_x = map_area[0] + map_area[2] + gap
+        pygame.draw.rect(screen, _RED, (panel_x, map_top, 3, 21))
+        _text(screen, font, "Flight log", (panel_x + 12, map_top), _WHITE)
+        y = map_top + 31
         moves = self._engine.history[frame_index - 1] if frame_index else []
-        for move in moves[-8:]:
+        if not moves:
+            _text(screen, small, "No activity recorded", (panel_x + 12, y),
+                  _MUTED)
+        for move in moves[-5:]:
             _text(screen, small,
-                  f"D{move.drone_id} -> {move.destination}",
-                  (panel_x + 16, y),
+                  f"Drone {move.drone_id}  →  {move.destination}",
+                  (panel_x + 12, y),
                   _AMBER if move.kind.value == "start_transit" else _WHITE)
-            y += 20
+            y += 19
+        _text(screen, small, "Place labels show drones / limit.",
+              (panel_x, height - 75), _MUTED)
+        _text(screen, small, "Link labels appear while in use.",
+              (panel_x, height - 55), _MUTED)
         status = "PLAYING" if playing else "PAUSED"
+        pygame.draw.line(screen, _GRID, (30, height - 39),
+                         (width - 30, height - 39), 1)
         _text(screen, small,
-              f"{status}  {speed:g}x   SPACE pause  N step  +/- speed  "
-              "R reset  Q quit",
-              (30, height - 27), _MUTED)
+              f"{status.lower()} · {speed:g}×     Space pause/resume  ·  "
+              "N next turn  ·  R restart  ·  Q close",
+              (30, height - 28), _MUTED)
 
 
 def _text(
