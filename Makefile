@@ -11,10 +11,10 @@ install: $(VENV)
 	$(BIN)/pip install flake8 mypy pytest
 
 run: $(VENV)
-	$(BIN)/python main.py
+	$(BIN)/python main.py "$(MAP)"
 
 debug: $(VENV)
-	$(BIN)/python -m pdb main.py
+	$(BIN)/python -m pdb main.py "$(MAP)"
 
 clean:
 	rm -rf __pycache__ .mypy_cache .pytest_cache $(VENV)
