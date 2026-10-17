@@ -11,6 +11,5 @@ dist/
 build/
 *.egg
 
-AGENTS.md
 .codex
 .aws
