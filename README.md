@@ -1,5 +1,7 @@
 # Fly-in
 
+## Description
+
 Fly-in simulates a fleet of drones moving through a capacity-limited map. The
 project is organized into domain, parser, pathfinding, simulation, and display
 layers. The standard command line runs the simulation and prints one line per
@@ -13,7 +15,7 @@ turn, with tokens only for drones that moved.
 The visualizer uses Pygame. The development checks use `pytest`, `flake8`, and
 `mypy`.
 
-## Setup and run
+## Instructions
 
 ```sh
 make
@@ -52,9 +54,9 @@ recent events. Map coordinates determine node placement; if coordinates
 overlap, a stable grid layout is used. Start and end zones show unlimited
 effective capacity because the scheduler does not constrain hub occupancy.
 
-Use Space to pause or resume, N to step a turn, +/- to change speed, R to
-restart, and Q or Escape to close. To use the terminal-only dashboard instead,
-run:
+Use Space to pause or resume, N to move to the next turn, P to move to the
+previous turn, +/- to change speed, R to restart, and Q or Escape to close.
+To use the terminal-only dashboard instead, run:
 
 ```sh
 .venv/bin/python main.py --terminal-visualize maps/easy/01_linear_path.txt
@@ -75,29 +77,19 @@ Each output line is a simulation turn. A normal move or arrival is printed as
 printed as `D<ID>-<zone_a>-<zone_b>`. Drones that wait are omitted. Map and
 simulation failures are reported to standard error and return a nonzero status.
 
-### Optional live-coding exercise
+### Capacity information
 
-The live review may ask you to add a `--capacity-info` option that prints zone
-and connection usage for each turn. This option is intentionally not
-implemented in the project; use these steps as a short practice guide during
-the review.
+The capacity reporting logic is prepared for the live-coding review. To turn
+it on, add this single line among the other argument declarations in
+`main.py`, before `args = parser.parse_args()`:
 
-1. In `main.py`, add `parser.add_argument("--capacity-info", action="store_true", ...)`.
-2. Find where `engine.run()` returns the turn history. Keep that call so the
-   engine's deadlock check still runs. Pair its turns with
-   `engine.state_history[1:]`; each entry is the snapshot after that turn.
-3. For each turn, count snapshots whose `current_zone` is each zone. For link
-   use, count snapshots with a matching `transit_connection`, and include moves
-   from that turn if you want to count ordinary moves too. The parsed map has
-   each zone's `max_drones` and each connection's `max_link_capacity`.
-4. When `--capacity-info` is set, print lines such as `Zone A: 1/2 drones`
-   and `Connection A-B: 1/1` alongside the existing turn line. Leave output
-   unchanged when the option is absent.
+```python
+parser.add_argument("--capacity-info", action="store_true")
+```
 
-You can demonstrate it with
-`.venv/bin/python main.py --capacity-info maps/easy/01_linear_path.txt`.
-Explain that the Engine snapshots and parsed map supply the display data; the
-scheduler and pathfinding code do not need to change.
+Then run `.venv/bin/python main.py --capacity-info MAP`. The existing code
+prints zone occupancy and connection use after every turn alongside the
+usual movement output; without the option, the normal CLI output is unchanged.
 
 ## Map format
 
@@ -123,6 +115,43 @@ or `blocked`), `max_drones` (positive integer), and `color`. Connections use
 `max_link_capacity` (positive integer). Zone names cannot contain hyphens,
 because a connection is written as `zone_a-zone_b`. Zone declarations must
 precede connection declarations.
+
+## Algorithm explanation
+
+The graph stores the map as an adjacency list. Dijkstra's algorithm finds a
+minimum-turn route, assigning restricted-zone entry a cost of two turns.
+Yen's algorithm finds a second simple route so the simulation can distribute
+drones across alternatives. Equal-cost paths prefer routes containing more
+priority zones. The scheduler then plans each turn against connection
+capacity, zone occupancy, and reserved arrivals; the engine applies those
+moves and records snapshots for the visualizers.
+
+## Visual representation
+
+The graphical and terminal visualizers show the map topology, zone types,
+metadata colors, drone locations, restricted transit, capacity use, turn
+counts, and recent events. The Pygame view animates recorded snapshots and
+supports pause, previous/next turn stepping, speed changes, and restart.
+
+## Example input and output
+
+Example input (`example.map`):
+
+```text
+nb_drones: 1
+start_hub: start 0 0
+hub: middle 1 0
+end_hub: goal 2 0
+connection: start-middle
+connection: middle-goal
+```
+
+Running `.venv/bin/python main.py example.map` prints:
+
+```text
+D1-middle
+D1-goal
+```
 
 ## Design
 

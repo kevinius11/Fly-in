@@ -298,6 +298,11 @@ class PygameVisualizer:
                     elif event.key == pygame.K_n:
                         playing = False
                         frame_index = min(frame_index + 1, len(history) - 1)
+                        elapsed = 0.0
+                    elif event.key == pygame.K_p:
+                        playing = False
+                        frame_index = max(frame_index - 1, 0)
+                        elapsed = 0.0
                     elif event.key == pygame.K_r:
                         frame_index, elapsed = 0, 0.0
                     elif event.key in (pygame.K_EQUALS, pygame.K_PLUS):
@@ -496,7 +501,7 @@ class PygameVisualizer:
                          (width - 30, height - 39), 1)
         _text(screen, small,
               f"{status.lower()} · {speed:g}×     Space pause/resume  ·  "
-              "N next turn  ·  R restart  ·  Q close",
+              "P previous  ·  N next  ·  R restart  ·  Q close",
               (30, height - 28), _MUTED)
 
 

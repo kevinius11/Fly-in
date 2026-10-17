@@ -11,7 +11,12 @@ from src.display.visualizer import TerminalVisualizer
 from src.parser.map_parser import MapParser
 from src.parser.exceptions import ParsingError
 from src.simulation.engine import Engine
-from src.simulation.models import Drone, MoveKind, PlannedMove
+from src.simulation.models import (
+    Drone,
+    DroneSnapshot,
+    MoveKind,
+    PlannedMove,
+)
 from src.simulation.scheduler import Scheduler
 
 
@@ -72,6 +77,51 @@ def _format_turn(moves: list[PlannedMove]) -> str:
     return " ".join(tokens)
 
 
+def _format_capacity_info(
+    map_data: MapData,
+    states: tuple[DroneSnapshot, ...],
+    moves: list[PlannedMove],
+) -> list[str]:
+    """Format zone occupancy and connection use for one turn."""
+    occupancy = {
+        zone_name: sum(
+            state.current_zone == zone_name for state in states
+        )
+        for zone_name in map_data.zones
+    }
+    lines = [
+        f"Zone {zone_name}: {occupancy[zone_name]}/"
+        f"{zone.max_drones if not (zone.is_start or zone.is_end) else '∞'} "
+        "drones"
+        for zone_name, zone in map_data.zones.items()
+    ]
+
+    users_by_connection: dict[tuple[str, str], set[int]] = {
+        (min(connection.zone_a, connection.zone_b),
+         max(connection.zone_a, connection.zone_b)): set()
+        for connection in map_data.connections
+    }
+    for state in states:
+        if state.transit_connection is not None:
+            key = (min(state.transit_connection),
+                   max(state.transit_connection))
+            users_by_connection.setdefault(key, set()).add(state.drone_id)
+    for move in moves:
+        key = (min(move.connection.zone_a, move.connection.zone_b),
+               max(move.connection.zone_a, move.connection.zone_b))
+        users_by_connection.setdefault(key, set()).add(move.drone_id)
+
+    for connection in map_data.connections:
+        key = (min(connection.zone_a, connection.zone_b),
+               max(connection.zone_a, connection.zone_b))
+        lines.append(
+            f"Connection {connection.zone_a}-{connection.zone_b}: "
+            f"{len(users_by_connection[key])}/"
+            f"{connection.max_link_capacity} used"
+        )
+    return lines
+
+
 def main() -> int:
     """Parse command-line options and run the requested simulation.
 
@@ -115,8 +165,15 @@ def main() -> int:
             TerminalVisualizer(map_data, engine).run()
             return 0
         history = engine.run()
-        for moves in history:
+        turn_states = engine.state_history[1:]
+        for turn_number, (moves, states) in enumerate(
+            zip(history, turn_states), start=1
+        ):
             print(_format_turn(moves), flush=True)
+            if getattr(args, "capacity_info", False):
+                print(f"Capacity after turn {turn_number}:")
+                for line in _format_capacity_info(map_data, states, moves):
+                    print(f"  {line}")
         if args.visualize:
             from src.display.pygame_visualizer import PygameVisualizer
 

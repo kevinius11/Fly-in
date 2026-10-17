@@ -5,7 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from main import main
+from main import _format_capacity_info, create_engine, main
+from src.parser.map_parser import MapParser
 
 
 def test_cli_prints_only_moved_drone_tokens_per_turn(
@@ -85,6 +86,32 @@ def test_cli_reports_no_route_as_controlled_error(
     assert result == 1
     assert captured.out == ""
     assert "Error: No route exists" in captured.err
+
+
+def test_capacity_info_formats_zone_and_connection_usage(
+    tmp_path: Path,
+) -> None:
+    map_file = tmp_path / "capacity.map"
+    map_file.write_text(
+        "nb_drones: 1\n"
+        "start_hub: start 0 0\n"
+        "hub: middle 1 0 [max_drones=2]\n"
+        "end_hub: goal 2 0\n"
+        "connection: start-middle [max_link_capacity=2]\n"
+        "connection: middle-goal\n",
+        encoding="utf-8",
+    )
+    map_data = MapParser().parse_file(str(map_file))
+    engine = create_engine(map_data)
+    history = engine.run()
+    lines = _format_capacity_info(
+        map_data,
+        engine.state_history[1],
+        history[0],
+    )
+
+    assert "Zone middle: 1/2 drones" in lines
+    assert "Connection start-middle: 1/2 used" in lines
 
 
 def test_cli_visualize_prints_output_without_a_graphical_display(
