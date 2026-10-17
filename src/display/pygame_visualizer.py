@@ -78,8 +78,11 @@ def _display_color(color: tuple[int, int, int]) -> tuple[int, int, int]:
         Muted RGB color tuple.
     """
     base = (45, 31, 34)
-    return tuple(round(channel * 0.48 + shade * 0.52)
-                 for channel, shade in zip(color, base))
+    return (
+        round(color[0] * 0.48 + base[0] * 0.52),
+        round(color[1] * 0.48 + base[1] * 0.52),
+        round(color[2] * 0.48 + base[2] * 0.52),
+    )
 
 
 def map_positions(
