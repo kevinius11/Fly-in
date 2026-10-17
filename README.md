@@ -60,6 +60,13 @@ run:
 .venv/bin/python main.py --terminal-visualize maps/easy/01_linear_path.txt
 ```
 
+The terminal dashboard advances automatically when stdin or stdout is not an
+interactive terminal, so it can also be captured by scripts. In an interactive
+terminal, Space pauses or resumes, N advances one turn while paused, `+`/`-`
+changes playback speed, and Q exits. The dashboard shows the network, zone
+types and metadata colors, drones in zones or restricted transit, zone and
+link capacity, delivery counts, and events from the current turn.
+
 If Pygame cannot open a graphical display, it reports the problem and leaves
 the standard terminal output available.
 
@@ -67,6 +74,24 @@ Each output line is a simulation turn. A normal move or arrival is printed as
 `D<ID>-<zone>`; entering a restricted zone starts a two-turn transit and is
 printed as `D<ID>-<zone_a>-<zone_b>`. Drones that wait are omitted. Map and
 simulation failures are reported to standard error and return a nonzero status.
+
+### Optional live-coding exercise
+
+`--capacity-info` is intentionally not implemented. It is a small exercise for
+adding a capacity summary to the standard turn output:
+
+1. Add a `--capacity-info` boolean argument in `main.py`.
+2. Keep `engine.run()` so its deadlock check stays in use. Pair
+   `engine.history` with `engine.state_history[1:]` to get each turn's moves
+   and resulting drone snapshots.
+3. Count snapshots by `current_zone`, and count `transit_connection` values
+   for link use. Read each zone's `max_drones` and each connection's
+   `max_link_capacity` from the parsed map.
+4. Print a short summary such as `Zone A: 1/2 drones` and
+   `Connection A-B: 1/1` for that turn, only when the new flag is set.
+
+Keep the existing output unchanged when the flag is absent. The snapshots and
+parsed map provide the needed data; the scheduler does not need to change.
 
 ## Map format
 
