@@ -37,9 +37,9 @@ class MapParser:
             None.
         """
         self._state = ParserState.HEADER
-        self._nb_drones: int | None = None  # None represents not parsed yet...
-        self._zones: dict[str, Zone] = {}  # O(1) lookup "A": Zone(...)
-        self._connections: list[Connection] = []  # ("A", "B")A-BB-AO(1)HASHSET
+        self._nb_drones: int | None = None  # None indica que falta la cabecera
+        self._zones: dict[str, Zone] = {}  # Índice de zonas por nombre
+        self._connections: list[Connection] = []  # Conserva el orden del mapa.
         self._seen_connection_pairs: set[tuple[str, str]] = set()
         self._start_hub: Zone | None = None
         self._end_hub: Zone | None = None
@@ -109,7 +109,7 @@ class MapParser:
         Returns:
             The line content appearing before the first '#' character.
         """
-        return line.split("#", 1)[0]  # O(L) complexity
+        return line.split("#", 1)[0]  # Se descarta el texto desde el primer #.
 
     def _extract_metadata_str(
             self,

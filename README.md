@@ -77,21 +77,27 @@ simulation failures are reported to standard error and return a nonzero status.
 
 ### Optional live-coding exercise
 
-`--capacity-info` is intentionally not implemented. It is a small exercise for
-adding a capacity summary to the standard turn output:
+The live review may ask you to add a `--capacity-info` option that prints zone
+and connection usage for each turn. This option is intentionally not
+implemented in the project; use these steps as a short practice guide during
+the review.
 
-1. Add a `--capacity-info` boolean argument in `main.py`.
-2. Keep `engine.run()` so its deadlock check stays in use. Pair
-   `engine.history` with `engine.state_history[1:]` to get each turn's moves
-   and resulting drone snapshots.
-3. Count snapshots by `current_zone`, and count `transit_connection` values
-   for link use. Read each zone's `max_drones` and each connection's
-   `max_link_capacity` from the parsed map.
-4. Print a short summary such as `Zone A: 1/2 drones` and
-   `Connection A-B: 1/1` for that turn, only when the new flag is set.
+1. In `main.py`, add `parser.add_argument("--capacity-info", action="store_true", ...)`.
+2. Find where `engine.run()` returns the turn history. Keep that call so the
+   engine's deadlock check still runs. Pair its turns with
+   `engine.state_history[1:]`; each entry is the snapshot after that turn.
+3. For each turn, count snapshots whose `current_zone` is each zone. For link
+   use, count snapshots with a matching `transit_connection`, and include moves
+   from that turn if you want to count ordinary moves too. The parsed map has
+   each zone's `max_drones` and each connection's `max_link_capacity`.
+4. When `--capacity-info` is set, print lines such as `Zone A: 1/2 drones`
+   and `Connection A-B: 1/1` alongside the existing turn line. Leave output
+   unchanged when the option is absent.
 
-Keep the existing output unchanged when the flag is absent. The snapshots and
-parsed map provide the needed data; the scheduler does not need to change.
+You can demonstrate it with
+`.venv/bin/python main.py --capacity-info maps/easy/01_linear_path.txt`.
+Explain that the Engine snapshots and parsed map supply the display data; the
+scheduler and pathfinding code do not need to change.
 
 ## Map format
 

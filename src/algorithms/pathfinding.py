@@ -187,8 +187,7 @@ def _shortest_path(
         for node in zone_names
     }
 
-    # Scores are ordered by movement cost first, then by descending number
-    # of priority zones (stored as a negative count for tuple ordering).
+    # Se prioriza el coste y después el número de zonas prioritarias.
     best_score[start_name] = (0, 0)
     pq: list[tuple[int, int, str]] = [(0, 0, start_name)]
 
@@ -199,7 +198,7 @@ def _shortest_path(
         if score != best_score[node]:
             continue
 
-        if node == end_name:  # Si el nodo que acaba de salir es el destino
+        if node == end_name:  # El destino ya tiene su mejor coste.
             break
 
         for edge in graph.get_neighbors(node):
@@ -222,11 +221,11 @@ def _shortest_path(
                     (new_score[0], new_score[1], neighbor),
                 )
 
-    # El destino es inalcanzable
+    # No se encontró una ruta hasta el destino.
     if best_score[end_name] is None:
         return None
 
-    # Reconstruccion del camino path, usando BACKTRACKING
+    # Se reconstruye la ruta siguiendo los predecesores.
     path: list[str] = []
     curr: str | None = end_name
 

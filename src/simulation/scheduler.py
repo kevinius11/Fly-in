@@ -73,14 +73,14 @@ class Scheduler:
         candidates: list[PlannedMove] = []
 
         for dron in drones:
-            # Ignoramos drones que ya han llegado al destino
+            # Los drones entregados no necesitan más movimientos.
             if dron.is_delivered:
                 continue
 
-            # Gestionamos transitos activos
+            # El tránsito activo conserva su conexión hasta completarse.
             if dron.transit is not None:
                 if dron.transit.turns_remaining == 1:
-                    # Transito listo para completar
+                    # El tránsito termina cuando queda un turno.
                     complete_move = PlannedMove(
                         drone_id=dron.drone_id,
                         origin=None,
@@ -97,7 +97,7 @@ class Scheduler:
             if origin is None or destination is None:
                 continue
 
-            # Localizamos el edge de la conexion
+            # La ruta debe coincidir con una conexión accesible del grafo.
             target_edge: Edge | None = None
             for edge in self._graph.get_neighbors(origin):
                 if edge.target.name == destination:
@@ -107,7 +107,7 @@ class Scheduler:
             if target_edge is None:
                 continue
 
-            # Chequeamos el tipo de movimiento segun el destino
+            # Entrar en una zona restringida inicia un tránsito de dos turnos.
             target_zone = target_edge.target
             is_restricted = target_zone.zone_type == ZoneType.RESTRICTED
             move_kind = (MoveKind.START_TRANSIT
@@ -150,18 +150,18 @@ class Scheduler:
             m for m in candidates if m.kind != MoveKind.COMPLETE_TRANSIT
         ]
 
-        # Aprobar primero todos los transitos completados
+        # Las llegadas liberan conexiones antes de evaluar movimientos nuevos.
         approved_movements.extend(complete_transits)
 
-        # Evaluamos candidatos ordinarios en secuencia
+        # Se evalúan los demás candidatos respetando su orden de planificación.
         for candidate in ordinary_moves:
             test_moves = approved_movements + [candidate]
 
-            # Verificamos capacidad de conexiones para el conjunto
+            # La capacidad del enlace incluye los tránsitos que siguen activos.
             if not self._connection_capacities_respected(test_moves, drones):
                 continue
 
-            # Calculamos la ocupacion y posibles reservas
+            # Se proyecta la ocupación y se reservan llegadas futuras.
             projected_occupancy = self._calculate_final_zone_occupancy(
                 test_moves, drones
             )
@@ -170,7 +170,7 @@ class Scheduler:
                 test_moves, drones
             )
 
-            # Comprobamos formula Op + FutReservas <= CapacidadZona
+            # La ocupación más las reservas no puede superar la capacidad.
             violates_zone_capacity = False
             for zone_name, count in projected_occupancy.items():
                 zone = self._graph.get_zone(zone_name)
@@ -185,7 +185,7 @@ class Scheduler:
             if violates_zone_capacity:
                 continue
 
-            # Si pasa las comprobaciones
+            # Solo se aprueban movimientos compatibles con ambas capacidades.
             approved_movements.append(candidate)
 
         return approved_movements
@@ -210,21 +210,21 @@ class Scheduler:
         """
         occupancy: dict[str, int] = {}
 
-        # Contamos drones menos los que esten entregados o en transito
+        # Los entregados y los que viajan no ocupan una zona intermedia.
         for name in self._graph.get_zone_names():
             occupancy[name] = sum(
                 1 for d in drones
                 if d.current_zone == name and not d.is_delivered
             )
 
-        # Ajustamos segun salidas y entradas
+        # Se aplican primero las salidas y luego las entradas proyectadas.
         for move in moves:
             if move.destination not in occupancy:
                 raise ValueError(
                     f"Destination zone '{move.destination}' for drone "
                     f"{move.drone_id} does not exist in the map graph."
                 )
-            # Si el dron sale de normal/restrictesd liberamos plaza
+            # Salir de una zona libera su plaza en este turno.
             if move.kind in (MoveKind.MOVE, MoveKind.START_TRANSIT):
                 if move.origin is None:
                     raise ValueError(
@@ -238,7 +238,7 @@ class Scheduler:
                     )
                 occupancy[move.origin] -= 1
 
-            # Si el dron entra o completa un transito incrementa plaza
+            # Entrar o completar tránsito ocupa la plaza de destino.
             if move.kind in (MoveKind.MOVE, MoveKind.COMPLETE_TRANSIT):
                 occupancy[move.destination] += 1
 
@@ -257,7 +257,7 @@ class Scheduler:
             True if all counts satisfy the applicable capacity limits.
         """
         for zone_name, count in occupancy.items():
-            if count < 0:  # Ocupacion negativa
+            if count < 0:  # Una zona no puede tener ocupación negativa.
                 return False
 
             zone = self._graph.get_zone(zone_name)
@@ -299,17 +299,17 @@ class Scheduler:
             The violating zone name, or None when occupancy is valid.
         """
         for zone_name, count in occupancy.items():
-            # Chequeo negativos
+            # Una ocupación negativa indica una salida inválida.
             if count < 0:
                 return zone_name
 
             zone = self._graph.get_zone(zone_name)
 
-            # Chequeamos inicio y fin
+            # Los hubs no tienen límite de ocupación en el planificador.
             if zone.is_start or zone.is_end:
                 continue
 
-            # Comprobamos capacidad
+            # Las demás zonas respetan su capacidad declarada.
             if count > zone.max_drones:
                 return zone_name
 
@@ -333,7 +333,7 @@ class Scheduler:
         connection_capacities: dict[frozenset[str], int] = {}
         connections: dict[frozenset[str], Connection] = {}
 
-        # Chequeamos cuantos drones ya estabana activos antes del turno
+        # Se cuentan primero los drones que ya ocupan cada conexión.
         for drone in drones:
             if drone.transit is not None:
                 conn = drone.transit.connection
@@ -342,7 +342,7 @@ class Scheduler:
                 connection_capacities[key] = conn.max_link_capacity
                 connections[key] = conn
 
-        # Chequeamos posibles candidatos MoveKind
+        # Los movimientos aprobados también consumen capacidad del enlace.
         for move in moves:
             if move.kind in (MoveKind.MOVE, MoveKind.START_TRANSIT):
                 conn = move.connection
@@ -351,7 +351,7 @@ class Scheduler:
                 connection_capacities[key] = conn.max_link_capacity
                 connections[key] = conn
 
-        # Chequeamos si se supera la capacidad de conexion
+        # Se rechaza el conjunto si algún enlace supera su límite.
         for key, usage in connection_usage.items():
             if usage > connection_capacities[key]:
                 return connections[key]
@@ -372,13 +372,13 @@ class Scheduler:
         Returns:
             Future arrival counts indexed by destination zone name.
         """
-        # Iniciamos contador a 0 para todas las zonas del grafo
+        # Cada zona empieza con cero llegadas reservadas.
         reserved: dict[str, int] = {
             zone_name: 0
             for zone_name in self._graph.get_zone_names()
         }
 
-        # Contamos transitos que no se completan en este turno
+        # Los tránsitos pendientes mantienen reservado su destino.
         for drone in drones:
             if (drone.transit is not None
                and drone.transit.turns_remaining > 1):
@@ -386,7 +386,7 @@ class Scheduler:
                 if dest in reserved:
                     reserved[dest] += 1
 
-        # Contar reservas para los posibles nuevos movimientos de transito
+        # Un nuevo tránsito reserva su zona de destino para el siguiente turno.
         for move in moves:
             if move.kind == MoveKind.START_TRANSIT:
                 dest = move.destination

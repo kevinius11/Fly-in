@@ -36,21 +36,21 @@ def test_graph_asymmetric_costs() -> None:
 
     graph = Graph(map_data)
 
-    # A -> B costs 2 because B is RESTRICTED.
+    # A -> B cuesta dos turnos porque B es una zona restringida.
     a_edges = graph.get_neighbors("A")
     assert len(a_edges) == 1
     assert a_edges[0].movement_cost == 2
 
-    # B -> A costs 1 because A is NORMAL.
+    # B -> A cuesta un turno porque A es una zona normal.
     b_edges = graph.get_neighbors("B")
     assert len(b_edges) == 1
     assert b_edges[0].movement_cost == 1
 
-    # Each edge must point to the correct destination.
+    # Cada arista debe apuntar al destino correcto.
     assert a_edges[0].target is z_b
     assert b_edges[0].target is z_a
 
-    # Both directions use the same physical connection.
+    # Ambas direcciones comparten la misma conexión física.
     assert a_edges[0].connection is conn
     assert b_edges[0].connection is conn
 

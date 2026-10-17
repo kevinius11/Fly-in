@@ -61,7 +61,7 @@ class Engine:
                 raise ValueError(f"Duplicate move for D{move.drone_id}.")
             seen_drone_ids.add(move.drone_id)
 
-            # Localizamos el dron por ID
+            # Se busca el estado mutable correspondiente al movimiento.
             drone = next(
                 (d for d in self._drones if d.drone_id == move.drone_id),
                 None
@@ -70,7 +70,7 @@ class Engine:
             if drone is None:
                 raise ValueError(f"D{move.drone_id} not found.")
 
-            # Ejecutamos el tipo de movimiento (Fase de validación pura)
+            # Se valida cada movimiento antes de modificar ningún dron.
             movement_from_zone = (
                 MoveKind.MOVE,
                 MoveKind.START_TRANSIT,
@@ -184,8 +184,8 @@ class Engine:
 
         moves = self._scheduler.plan_turn(self._drones)
         self._apply_moves(moves)
-        # _apply_moves() validates its move set atomically. The complete
-        # turn is not transactional if advancing transit fails afterward.
+        # Los movimientos se validan en conjunto antes de mutar los drones.
+        # El avance del tránsito ocurre después de aplicar esos movimientos.
         self._advance_transits()
 
         self._history.append(list(moves))

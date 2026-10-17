@@ -62,10 +62,10 @@ class Graph:
             or -1 when the destination is blocked.
         """
         if target_zone.zone_type == ZoneType.BLOCKED:
-            return -1  # Inaccessible
+            return -1  # Las zonas bloqueadas no admiten entradas.
         if target_zone.zone_type == ZoneType.RESTRICTED:
             return 2
-        return 1  # NORMAL and PRIORITY cost 1
+        return 1  # Las zonas normales y prioritarias cuestan un turno.
 
     def _build_graph(self) -> None:
         """
@@ -82,7 +82,7 @@ class Graph:
             z_a = self._map_data.zones[conn.zone_a]
             z_b = self._map_data.zones[conn.zone_b]
 
-            # A blocked zone cannot be entered or left.
+            # Una zona bloqueada no se puede entrar ni abandonar.
             if (
                 z_a.zone_type == ZoneType.BLOCKED
                 or z_b.zone_type == ZoneType.BLOCKED

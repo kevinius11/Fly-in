@@ -50,7 +50,7 @@ def test_render_shows_topology_zone_types_metadata_colors_and_position(
     assert "\n    1" in plain_frame
     assert "0/2" in frame
     assert "0/1" in frame
-    assert "\033[38;5;208m" in frame  # Metadata color=orange.
+    assert "\033[38;5;208m" in frame  # El metadato naranja usa su color ANSI.
 
 
 def test_render_shows_actual_restricted_transit_and_connection_load(

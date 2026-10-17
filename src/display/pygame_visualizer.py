@@ -381,8 +381,7 @@ class PygameVisualizer:
         zones = list(self._map_data.zones.values())
         xs = [zone.x for zone in zones]
         coordinate_width = max(xs) - min(xs) if xs else 0
-        # Long maps need the sidebar's space so every hub and connection can
-        # stay visible at once inside the fixed-size window.
+        # Los mapas largos usan el espacio lateral para mostrar toda la red.
         show_sidebar = coordinate_width <= 12
         side_width = (
             min(330, max(270, int(width * 0.29))) if show_sidebar else 0
