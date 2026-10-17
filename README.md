@@ -28,7 +28,7 @@ Running `make` creates `.venv` if needed and installs the project and its
 development tools. `make install` does the same explicitly.
 
 Run these commands from the project directory. When `MAP` is omitted,
-`make run` uses `maps/hard/01_maze_nightmare.txt` by default. Choose another
+`make run` uses `maps/04_edge_case_gauntlet.txt` by default. Choose another
 map with `make run MAP=maps/medium/02_circular_loop.txt` (or `MAPS=...`).
 The direct CLI also accepts `--map` or `--maps`, for example:
 

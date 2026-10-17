@@ -1,0 +1,51 @@
+# Hard Level 4: Edge Case Gauntlet
+# Valid, solvable stress map for routing, capacity, transit, and display paths.
+nb_drones: 24
+
+start_hub: launch 0 0 [color=green]
+hub: west_gate 1 -1 [max_drones=2 color=cyan]
+hub: east_gate 1 1 [max_drones=2 color=cyan]
+hub: center_gate 1 0 [max_drones=1 color=orange]
+
+# Narrow shared bottlenecks and a restricted two-turn transit.
+hub: west_merge 2 -1 [max_drones=1]
+hub: east_merge 2 1 [max_drones=1]
+hub: slow_tunnel 3 0 [zone=restricted max_drones=1 color=purple]
+hub: priority_lane 3 1 [zone=priority max_drones=1 color=yellow]
+hub: crossroad 4 0 [max_drones=1]
+hub: final_gate 5 0 [max_drones=1]
+end_hub: landing 6 0 [color=red]
+
+# Decoys cover blocked destinations, dead ends, loops, and coordinate overlap.
+hub: blocked_north 2 2 [zone=blocked color=gray]
+hub: dead_end 3 -2 [max_drones=1]
+hub: loop_a 3 -1 [max_drones=1]
+hub: loop_b 4 -1 [max_drones=1]
+hub: overlap_probe 4 0 [zone=priority color=blue]
+hub: dead_spur 5 2 [zone=restricted max_drones=1]
+
+# Different entry capacities and a high-capacity shared start link.
+connection: launch-west_gate [max_link_capacity=3]
+connection: launch-east_gate [max_link_capacity=2]
+connection: launch-center_gate [max_link_capacity=1]
+connection: west_gate-west_merge [max_link_capacity=1]
+connection: east_gate-east_merge [max_link_capacity=2]
+connection: center_gate-west_merge [max_link_capacity=1]
+connection: center_gate-east_merge [max_link_capacity=1]
+connection: west_merge-slow_tunnel [max_link_capacity=1]
+connection: east_merge-slow_tunnel [max_link_capacity=1]
+connection: slow_tunnel-priority_lane [max_link_capacity=1]
+connection: slow_tunnel-crossroad [max_link_capacity=1]
+connection: priority_lane-crossroad [max_link_capacity=1]
+connection: crossroad-final_gate [max_link_capacity=1]
+connection: final_gate-landing [max_link_capacity=2]
+
+# Unusable branches and a cycle test avoidance and graph traversal.
+connection: west_gate-dead_end
+connection: dead_end-loop_a
+connection: loop_a-loop_b
+connection: loop_b-west_merge
+connection: east_gate-blocked_north
+connection: blocked_north-dead_spur
+connection: crossroad-overlap_probe
+connection: overlap_probe-dead_spur

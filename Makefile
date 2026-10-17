@@ -1,7 +1,7 @@
 PYTHON = python3
 VENV = .venv
 PY = $(VENV)/bin/python
-MAP = maps/hard/01_maze_nightmare.txt
+MAP = maps/04_edge_case_gauntlet.txt
 ifneq ($(MAPS),)
 MAP = $(MAPS)
 endif
