@@ -1,105 +1,57 @@
-*This project has been created as part of the 42 curriculum by kcastro-.*
-
 # Fly-in
 
-## Description
+**Simulación y planificación de rutas para flotas de drones en mapas con capacidad limitada.** Fly-in combina búsqueda de caminos, coordinación de movimientos y visualización para explorar cómo una flota atraviesa una red con cuellos de botella, zonas especiales y rutas alternativas.
 
-Fly-in simulates a fleet of drones moving through a capacity-limited map. The
-project is organized into domain, parser, pathfinding, simulation, and display
-layers. The standard command line runs the simulation and prints one line per
-turn, with tokens only for drones that moved.
+> Proyecto realizado por **Kevin Castro** como parte del currículo de 42.
 
-## Requirements
+![Esquema de una flota de drones recorriendo una red con rutas alternativas](assets/fly-in-network.svg)
 
-- Python 3.10 or newer
-- `make` for the convenience commands below
+## Qué aporta
 
-The visualizer uses Pygame. The development checks use `pytest`, `flake8`, and
-`mypy`.
+- **Planificación de rutas:** Dijkstra calcula rutas de coste mínimo y Yen obtiene rutas simples alternativas. El coste contempla el tránsito de dos turnos por zonas restringidas y favorece zonas prioritarias cuando las rutas empatan.
+- **Coordinación bajo restricciones:** el planificador organiza los movimientos por turno respetando la capacidad de las conexiones, la ocupación de las zonas y las llegadas reservadas.
+- **Simulación reproducible:** el motor valida cada conjunto de movimientos, gestiona drones en tránsito y conserva snapshots inmutables para revisar la evolución.
+- **Mapas extensibles:** un formato de texto sencillo permite declarar zonas, conexiones, capacidades, tipos y colores.
+- **Dos formas de observar la ejecución:** una animación con Pygame y un panel interactivo en terminal hacen visibles rutas, congestión, capacidades y eventos.
 
-## Instructions
+## Arquitectura
+
+El diseño separa el formato del mapa, el dominio de la planificación y la presentación. El motor ejecuta las decisiones del scheduler y registra estados que consumen ambas visualizaciones.
+
+![Flujo de datos y componentes de Fly-in](assets/fly-in-architecture.svg)
+
+## Requisitos
+
+- Python 3.10 o posterior
+- `make` para los comandos de conveniencia
+- Pygame CE para la ventana gráfica (se instala con el proyecto)
+
+## Inicio rápido
 
 ```sh
 make
-make run
+make run MAP=maps/easy/02_simple_fork.txt
 ```
 
-Running `make` creates `.venv` if needed and installs the project and its
-development tools. `make install` does the same explicitly.
-
-Run these commands from the project directory. When `MAP` is omitted,
-`make run` uses `maps/04_edge_case_gauntlet.txt` by default. Choose another
-map with `make run MAP=maps/medium/02_circular_loop.txt` (or `MAPS=...`).
-The direct CLI also accepts `--map` or `--maps`, for example:
-
-```sh
-.venv/bin/python main.py --map maps/easy/02_simple_fork.txt --visualize
-```
-
-Or run it directly:
+`make` crea `.venv` si hace falta e instala el proyecto. `make run` imprime los movimientos por turno y abre el visualizador gráfico. Para ejecutar sin `make`:
 
 ```sh
 .venv/bin/python main.py maps/easy/01_linear_path.txt
+.venv/bin/python main.py --visualize maps/medium/02_circular_loop.txt
+.venv/bin/python main.py --terminal-visualize maps/easy/02_simple_fork.txt
 ```
 
-`make run` prints the normal turn output in the terminal and opens the animated
-Pygame visualizer in a separate window. The equivalent direct command is:
+También se puede elegir el mapa con `--map` o `--maps`. La lista de mapas y sus desafíos está en [`maps/README.md`](maps/README.md).
 
-```sh
-.venv/bin/python main.py --visualize maps/easy/01_linear_path.txt
-```
+### Controles visuales
 
-The window replays the Engine's recorded drone positions over the map. It uses
-a dark neon palette and metadata colors, and shows zone types, restricted
-transit progress, zone occupancy, connection capacity, turn counters, and
-recent events. Map coordinates determine node placement; if coordinates
-overlap, a stable grid layout is used. Start and end zones show unlimited
-effective capacity because the scheduler does not constrain hub occupancy.
+En Pygame: `Espacio` pausa o reanuda, `N` y `P` avanzan o retroceden un turno, `+` y `-` cambian la velocidad, `R` reinicia y `Q` o `Esc` cierra.
 
-Use Space to pause or resume, N to move to the next turn, P to move to the
-previous turn, +/- to change speed, R to restart, and Q or Escape to close.
-To use the terminal-only dashboard instead, run:
+En el panel de terminal: `Espacio` pausa o reanuda, `N` avanza mientras está pausado, `+` y `-` cambian la velocidad y `Q` sale. En ejecución no interactiva, el panel avanza automáticamente.
 
-```sh
-.venv/bin/python main.py --terminal-visualize maps/easy/01_linear_path.txt
-```
+## Formato de mapa
 
-The terminal dashboard advances automatically when stdin or stdout is not an
-interactive terminal, so it can also be captured by scripts. In an interactive
-terminal, Space pauses or resumes, N advances one turn while paused, `+`/`-`
-changes playback speed, and Q exits. The dashboard shows the network, zone
-types and metadata colors, drones in zones or restricted transit, zone and
-link capacity, delivery counts, and events from the current turn.
-
-If Pygame cannot open a graphical display, it reports the problem and leaves
-the standard terminal output available.
-
-Each output line is a simulation turn. A normal move or arrival is printed as
-`D<ID>-<zone>`; entering a restricted zone starts a two-turn transit and is
-printed as `D<ID>-<zone_a>-<zone_b>`. Drones that wait are omitted. Map and
-simulation failures are reported to standard error and return a nonzero status.
-
-### Capacity information
-
-The capacity reporting logic is prepared for the live-coding review. To turn
-it on, add this single line among the other argument declarations in
-`main.py`, before `args = parser.parse_args()`:
-
-```python
-parser.add_argument("--capacity-info", action="store_true")
-```
-
-Then run `.venv/bin/python main.py --capacity-info MAP`. The existing code
-prints zone occupancy and connection use after every turn alongside the
-usual movement output; without the option, the normal CLI output is unchanged.
-
-## Map format
-
-Maps are UTF-8 text files. Blank lines and text after `#` are ignored. Declare
-the drone count first, then the start, end, and other zones, followed by their
-connections. Zone metadata is optional: zones default to `normal`, capacity
-defaults to one drone, and color is unset. Connection capacity also defaults
-to one.
+Los mapas son archivos de texto UTF-8. Se declara primero el número de drones, después las zonas y al final las conexiones. Se ignoran líneas vacías y comentarios iniciados por `#`.
 
 ```text
 nb_drones: 2
@@ -112,97 +64,53 @@ connection: junction-slow
 connection: slow-goal
 ```
 
-Supported zone metadata keys are `zone` (`normal`, `priority`, `restricted`,
-or `blocked`), `max_drones` (positive integer), and `color`. Connections use
-`max_link_capacity` (positive integer). Zone names cannot contain hyphens,
-because a connection is written as `zone_a-zone_b`. Zone declarations must
-precede connection declarations.
+Las zonas admiten `zone` (`normal`, `priority`, `restricted` o `blocked`), `max_drones` y `color`. Las conexiones admiten `max_link_capacity`. Si no se especifican, el tipo de zona es `normal` y las capacidades son de una unidad. Los nombres de zona no pueden contener guiones, ya que las conexiones usan `zona_a-zona_b`.
 
-## Algorithm explanation
+## Cómo funciona
 
-The graph stores the map as an adjacency list. Dijkstra's algorithm finds a
-minimum-turn route, assigning restricted-zone entry a cost of two turns.
-Yen's algorithm finds a second simple route so the simulation can distribute
-drones across alternatives. Equal-cost paths prefer routes containing more
-priority zones. The scheduler then plans each turn against connection
-capacity, zone occupancy, and reserved arrivals; the engine applies those
-moves and records snapshots for the visualizers.
+1. **Lectura y validación:** `MapParser` convierte el archivo en datos del dominio y comprueba declaraciones y referencias.
+2. **Construcción de rutas:** el grafo de adyacencia asigna costes de movimiento; Dijkstra busca la ruta de menor coste y Yen genera una alternativa simple. Las rutas se reparten cíclicamente entre los drones.
+3. **Planificación por turno:** el scheduler decide qué drones pueden avanzar atendiendo a capacidades y ocupación.
+4. **Ejecución y observación:** el motor aplica los movimientos validados, actualiza los tránsitos y guarda snapshots. Los visualizadores reproducen ese historial.
 
-## Visual representation
+Entrar en una zona restringida inicia un tránsito de dos turnos. Las zonas bloqueadas no son destinos válidos. En la salida estándar, cada línea representa un turno: `D<ID>-<zona>` indica movimiento o llegada, y `D<ID>-<zona_a>-<zona_b>` indica que el dron inicia un tránsito restringido. Los drones que esperan no aparecen en esa línea.
 
-The project provides two ways to follow a simulation:
+## Estructura del proyecto
 
-- The Pygame visualizer places zones using their map coordinates (and uses a
-  fallback grid if coordinates overlap), draws connections, and animates drone
-  positions from snapshots recorded by the engine. Zone type and optional
-  metadata colors make priority, restricted, and blocked areas easier to
-  distinguish. Its side panel shows zone occupancy, connection use, turn
-  progress, and recent events. Space pauses or resumes playback, N/P step
-  between turns, +/- changes speed, and R restarts the replay.
-- The terminal dashboard shows the same map and live simulation details in
-  text form. It supports pause, single-turn stepping, speed changes, and
-  quitting from an interactive terminal.
+| Ruta | Responsabilidad |
+| --- | --- |
+| `src/domain/` | Modelos del mapa y grafo de adyacencia |
+| `src/parser/` | Lectura y validación de mapas |
+| `src/algorithms/` | Dijkstra y rutas alternativas con Yen |
+| `src/simulation/` | Estado de drones, scheduler, motor e historial |
+| `src/display/` | Visualizadores de terminal y Pygame |
+| `maps/` | Mapas de ejemplo, organizados por dificultad |
+| `scripts/` | Experimento de comparación de políticas de rutas |
 
-These views make route choices, congestion, capacity constraints, and the
-two-turn transit through restricted zones visible as the simulation runs.
+## Ejemplo de salida
 
-## Example input and output
-
-Example input (`example.map`):
-
-```text
-nb_drones: 1
-start_hub: start 0 0
-hub: middle 1 0
-end_hub: goal 2 0
-connection: start-middle
-connection: middle-goal
-```
-
-Running `.venv/bin/python main.py example.map` prints:
+Para un mapa lineal con un dron, la ejecución puede producir:
 
 ```text
 D1-middle
 D1-goal
 ```
 
-## Design
+Si Pygame no puede abrir una pantalla gráfica, se informa del error y la salida estándar de la simulación sigue disponible. Los errores de mapa o simulación se envían a la salida de error y devuelven un código distinto de cero.
 
-- `src/domain/` contains map models and the project's adjacency-list graph.
-- `src/parser/` parses map text and validates declarations and references.
-- `src/algorithms/` finds shortest routes with Dijkstra and alternate routes
-  with Yen's algorithm.
-- `src/simulation/` assigns routes, schedules capacity-compatible moves, and
-  advances drone/transit state. Restricted destinations take two turns.
-- `src/display/visualizer.py` presents snapshots from the `Engine`; it does
-  not plan or apply moves itself.
-- `main.py` wires these components together and formats standard CLI output.
+## Ideas y decisiones de implementación
 
-The benchmark policy comparison in `scripts/compare_routing_policies.py` is
-an experiment and is kept separate from the production simulation path.
+- Modelar el mapa como un grafo permite tratar de forma uniforme rutas simples, ciclos y conexiones con coste de movimiento.
+- Separar el scheduler del motor concentra las restricciones de planificación y mantiene la ejecución responsable de validar y aplicar decisiones.
+- Registrar snapshots en el motor permite que las interfaces inspeccionen la simulación sin planificar ni modificar movimientos.
+- Comparar políticas de rutas se mantiene como experimento independiente en `scripts/compare_routing_policies.py`, fuera del flujo normal de ejecución.
 
-## Resources
+## Créditos y referencias
 
 - E. W. Dijkstra, [“A note on two problems in connexion with graphs”](https://doi.org/10.1007/BF01386390), *Numerische Mathematik*, 1959.
 - J. Y. Yen, [“Finding the K Shortest Loopless Paths in a Network”](https://doi.org/10.1287/mnsc.17.11.712), *Management Science*, 1971.
-- [Python documentation](https://docs.python.org/3/), including the standard library used by the command-line interface.
-- [pygame-ce documentation](https://pyga.me/docs/), for the graphical simulation view.
-- The repository's [`maps/README.md`](maps/README.md) explains the supplied challenge maps.
+- [Documentación de Python](https://docs.python.org/3/) · [Documentación de pygame-ce](https://pyga.me/docs/)
 
-### AI assistance
+---
 
-AI assistance was used to review and revise this README: organize the project
-overview, explain the existing algorithms and visualizer behavior, and check
-that the example matches the command-line output. The implementation details
-described here come from the project source. No application code or simulation
-algorithms were generated by AI for this documentation update.
-
-## Checks
-
-```sh
-.venv/bin/python -m pytest -q
-make lint
-```
-
-Run an individual map with the same command used above. The benchmark maps and
-their challenge descriptions are listed in [`maps/README.md`](maps/README.md).
+*La documentación describe las implementaciones presentes en el código del proyecto.*

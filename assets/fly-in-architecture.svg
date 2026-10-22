@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="430" viewBox="0 0 1200 430" role="img" aria-labelledby="title desc">
+  <title id="title">Arquitectura de Fly-in</title>
+  <desc id="desc">El mapa pasa por parser, dominio y algoritmos de rutas; el scheduler y el motor generan un historial consumido por dos visualizadores.</desc>
+  <rect width="1200" height="430" rx="24" fill="#101827"/>
+  <text x="48" y="58" fill="#f4f8fb" font-family="Arial,sans-serif" font-size="28" font-weight="700">De un mapa a una simulación observable</text>
+  <g font-family="Arial,sans-serif" text-anchor="middle">
+    <g><rect x="48" y="112" width="190" height="88" rx="15" fill="#1c3547" stroke="#4db8ca" stroke-width="2"/><text x="143" y="148" fill="#f5fbff" font-size="19" font-weight="700">Mapa de texto</text><text x="143" y="176" fill="#a9bdca" font-size="14">zonas y capacidades</text></g>
+    <g><rect x="285" y="112" width="190" height="88" rx="15" fill="#1c3547" stroke="#4db8ca" stroke-width="2"/><text x="380" y="148" fill="#f5fbff" font-size="19" font-weight="700">Parser</text><text x="380" y="176" fill="#a9bdca" font-size="14">lee y valida</text></g>
+    <g><rect x="522" y="112" width="190" height="88" rx="15" fill="#1c3547" stroke="#4db8ca" stroke-width="2"/><text x="617" y="148" fill="#f5fbff" font-size="19" font-weight="700">Grafo + rutas</text><text x="617" y="176" fill="#a9bdca" font-size="14">Dijkstra y Yen</text></g>
+    <g><rect x="759" y="112" width="190" height="88" rx="15" fill="#1c3547" stroke="#f5c35e" stroke-width="2"/><text x="854" y="148" fill="#f5fbff" font-size="19" font-weight="700">Scheduler</text><text x="854" y="176" fill="#a9bdca" font-size="14">coordina capacidad</text></g>
+    <g><rect x="996" y="112" width="156" height="88" rx="15" fill="#1c3547" stroke="#f5c35e" stroke-width="2"/><text x="1074" y="148" fill="#f5fbff" font-size="19" font-weight="700">Motor</text><text x="1074" y="176" fill="#a9bdca" font-size="14">ejecuta y registra</text></g>
+  </g>
+  <g stroke="#8da7b6" stroke-width="3" fill="none" marker-end="url(#arrow)"><path d="M238 156h38"/><path d="M475 156h38"/><path d="M712 156h38"/><path d="M949 156h38"/><path d="M1074 200v65H615v29"/></g>
+  <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#8da7b6"/></marker></defs>
+  <g font-family="Arial,sans-serif" text-anchor="middle">
+    <rect x="410" y="294" width="410" height="72" rx="15" fill="#173b43" stroke="#43e0c2" stroke-width="2"/>
+    <text x="615" y="325" fill="#f5fbff" font-size="19" font-weight="700">Historial de snapshots</text><text x="615" y="350" fill="#a9d8d1" font-size="14">estados reproducibles por turno</text>
+    <rect x="170" y="294" width="180" height="72" rx="15" fill="#1c3547" stroke="#4db8ca" stroke-width="2"/><text x="260" y="337" fill="#f5fbff" font-size="18" font-weight="700">Terminal</text>
+    <rect x="880" y="294" width="180" height="72" rx="15" fill="#1c3547" stroke="#4db8ca" stroke-width="2"/><text x="970" y="337" fill="#f5fbff" font-size="18" font-weight="700">Pygame</text>
+  </g>
+  <g stroke="#8da7b6" stroke-width="3" fill="none" marker-end="url(#arrow)"><path d="M410 330h-48"/><path d="M820 330h48"/></g>
+</svg>

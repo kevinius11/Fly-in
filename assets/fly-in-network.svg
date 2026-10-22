@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">Fly-in: drones y planificación de rutas</title>
+  <desc id="desc">Tres drones recorren una red de zonas con una ruta alternativa y un cuello de botella restringido.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#101827"/><stop offset="1" stop-color="#172d3b"/></linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="1200" height="360" rx="24" fill="url(#bg)"/>
+  <text x="56" y="78" fill="#f4f8fb" font-family="Arial,sans-serif" font-size="38" font-weight="700">Fly-in</text>
+  <text x="56" y="116" fill="#a9bdca" font-family="Arial,sans-serif" font-size="19">Planifica, coordina y visualiza una flota de drones</text>
+  <g stroke="#577184" stroke-width="5" fill="none" stroke-linecap="round">
+    <path d="M132 230 L330 230 L520 150 L710 150 L900 230 L1060 230"/>
+    <path d="M330 230 L520 300 L710 300 L900 230"/>
+  </g>
+  <g stroke="#43e0c2" stroke-width="5" fill="none" stroke-linecap="round" filter="url(#glow)"><path d="M132 230 L330 230 L520 150 L710 150 L900 230 L1060 230"/></g>
+  <g font-family="Arial,sans-serif" text-anchor="middle">
+    <g><circle cx="132" cy="230" r="28" fill="#46d9be"/><text x="132" y="237" fill="#10212b" font-size="18" font-weight="700">IN</text><text x="132" y="280" fill="#c5d5df" font-size="16">Origen</text></g>
+    <g><circle cx="330" cy="230" r="22" fill="#31a9c8"/><text x="330" y="280" fill="#c5d5df" font-size="16">Cruce</text></g>
+    <g><circle cx="520" cy="150" r="24" fill="#f5c35e"/><text x="520" y="156" fill="#26313a" font-size="15" font-weight="700">★</text><text x="520" y="112" fill="#f5d98f" font-size="16">Prioridad</text></g>
+    <g><circle cx="710" cy="150" r="24" fill="#ef8b70"/><text x="710" y="156" fill="#2d2022" font-size="14" font-weight="700">2T</text><text x="710" y="112" fill="#f1a18a" font-size="16">Restringida</text></g>
+    <g><circle cx="900" cy="230" r="22" fill="#31a9c8"/><text x="900" y="280" fill="#c5d5df" font-size="16">Cruce</text></g>
+    <g><circle cx="1060" cy="230" r="28" fill="#46d9be"/><text x="1060" y="237" fill="#10212b" font-size="18" font-weight="700">FIN</text><text x="1060" y="280" fill="#c5d5df" font-size="16">Destino</text></g>
+  </g>
+  <g fill="#e9f5fa"><path d="M270 216l12 7-12 7 3-7z"/><path d="M820 136l12 7-12 7 3-7z"/><path d="M990 216l12 7-12 7 3-7z"/></g>
+  <g transform="translate(270 203)" fill="#f3fbff" stroke="#132834" stroke-width="2"><path d="M0 0l16 7-16 7 4-7z"/><circle cx="-5" cy="2" r="3"/><circle cx="-5" cy="12" r="3"/></g>
+  <g transform="translate(455 123)" fill="#f3fbff" stroke="#132834" stroke-width="2"><path d="M0 0l16 7-16 7 4-7z"/><circle cx="-5" cy="2" r="3"/><circle cx="-5" cy="12" r="3"/></g>
+  <g transform="translate(820 203)" fill="#f3fbff" stroke="#132834" stroke-width="2"><path d="M0 0l16 7-16 7 4-7z"/><circle cx="-5" cy="2" r="3"/><circle cx="-5" cy="12" r="3"/></g>
+</svg>
