@@ -16,13 +16,13 @@
 
 ## Capturas de la simulación
 
-Estas imágenes salen de fotogramas reales del motor al ejecutar `03_priority_puzzle.txt`: muestran la flota en movimiento, un dron cruzando una zona restringida y la llegada. La interfaz usa una paleta de neón y el entorno visual de Arasaka, inspirado en *Cyberpunk 2077*, uno de mis juegos favoritos.
+Estas son capturas reales tomadas durante distintas ejecuciones de la simulación. La interfaz usa una paleta de neón y el entorno visual de Arasaka, inspirado en *Cyberpunk 2077*, uno de mis juegos favoritos.
 
-![Flota de drones avanzando por el mapa Priority Puzzle](assets/screenshots/01-fleet-in-motion.png)
+![Flota de drones avanzando por una red con rutas alternativas](assets/screenshots/01-fleet-in-motion.png)
 
 ![Dron en tránsito por una conexión restringida](assets/screenshots/02-restricted-transit.png)
 
-![Estado final de la simulación tras la llegada](assets/screenshots/03-arrival.png)
+![Flota de drones avanzando por una red con cuellos de botella](assets/screenshots/03-arrival.png)
 
 Para volver a generar las capturas desde el historial del motor:
 
