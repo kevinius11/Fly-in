@@ -16,9 +16,9 @@
 
 ## Capturas de la simulación
 
-Estas imágenes salen de fotogramas reales del motor al ejecutar `03_priority_puzzle.txt`: muestran la flota en movimiento, un dron cruzando una zona restringida y la llegada. La interfaz usa una paleta de neón y el entorno visual de Arasaka, inspirado en *Cyberpunk 2077*, uno de mis juegos favoritos.
+Estas imágenes salen de fotogramas reales del motor: la primera muestra la flota en `easy/02_simple_fork.txt` y las otras dos, el tránsito restringido y la llegada en `03_priority_puzzle.txt`. La interfaz usa una paleta de neón y el entorno visual de Arasaka, inspirado en *Cyberpunk 2077*, uno de mis juegos favoritos.
 
-![Flota de drones avanzando por el mapa Priority Puzzle](assets/screenshots/01-fleet-in-motion.png)
+![Flota de drones avanzando por el mapa Simple Fork](assets/screenshots/01-fleet-in-motion.png)
 
 ![Dron en tránsito por una conexión restringida](assets/screenshots/02-restricted-transit.png)
 
