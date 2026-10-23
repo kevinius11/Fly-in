@@ -14,25 +14,25 @@ from src.simulation.models import DroneSnapshot
 
 WIDTH = 1440
 HEIGHT = 900
-_BACKGROUND = (15, 16, 18)
-_PANEL = (25, 26, 29)
-_GRID = (48, 49, 53)
-_CYAN = (160, 164, 170)
-_MAGENTA = (192, 190, 190)
-_AMBER = (220, 163, 79)
-_RED = (211, 35, 49)
-_WHITE = (235, 233, 229)
-_MUTED = (139, 140, 144)
+_BACKGROUND = (8, 10, 18)
+_PANEL = (15, 19, 32)
+_GRID = (37, 53, 72)
+_CYAN = (0, 240, 255)
+_MAGENTA = (255, 43, 157)
+_AMBER = (255, 205, 55)
+_RED = (255, 43, 65)
+_WHITE = (229, 244, 255)
+_MUTED = (128, 163, 185)
 _DRONE_COLORS = (
-    (211, 35, 49), (232, 82, 89), (174, 28, 42),
-    (241, 119, 120), (190, 48, 62), (220, 163, 79),
-    (210, 210, 207),
+    (0, 240, 255), (255, 43, 157), (255, 205, 55),
+    (127, 255, 212), (189, 131, 255), (255, 100, 85),
+    (229, 244, 255),
 )
 _ZONE_COLORS = {
-    ZoneType.NORMAL: (190, 191, 194),
-    ZoneType.PRIORITY: (211, 35, 49),
-    ZoneType.RESTRICTED: (220, 163, 79),
-    ZoneType.BLOCKED: (115, 48, 54),
+    ZoneType.NORMAL: (0, 240, 255),
+    ZoneType.PRIORITY: (255, 43, 157),
+    ZoneType.RESTRICTED: (255, 205, 55),
+    ZoneType.BLOCKED: (100, 42, 66),
 }
 _NAMED_COLORS = {
     "cyan": _CYAN, "magenta": _MAGENTA, "amber": _AMBER,
@@ -69,7 +69,7 @@ def metadata_color(zone: Zone) -> tuple[int, int, int]:
 
 
 def _display_color(color: tuple[int, int, int]) -> tuple[int, int, int]:
-    """Blend a map color into the display's muted graphite palette.
+    """Blend a map color into the display's dark neon palette.
 
     Args:
         color: Source RGB color.
@@ -77,11 +77,11 @@ def _display_color(color: tuple[int, int, int]) -> tuple[int, int, int]:
     Returns:
         Muted RGB color tuple.
     """
-    base = (45, 31, 34)
+    base = (11, 17, 31)
     return (
-        round(color[0] * 0.48 + base[0] * 0.52),
-        round(color[1] * 0.48 + base[1] * 0.52),
-        round(color[2] * 0.48 + base[2] * 0.52),
+        round(color[0] * 0.78 + base[0] * 0.22),
+        round(color[1] * 0.78 + base[1] * 0.22),
+        round(color[2] * 0.78 + base[2] * 0.22),
     )
 
 
@@ -325,7 +325,7 @@ class PygameVisualizer:
                     backdrop_surface = pygame.transform.smoothscale(
                         backdrop_image, size
                     )
-                    backdrop_surface.set_alpha(132)
+                    backdrop_surface.set_alpha(42)
                     backdrop_size = size
                 screen.blit(backdrop_surface, (0, 0))
             self._draw(screen, pygame, font, small, history[frame_index],
@@ -373,13 +373,13 @@ class PygameVisualizer:
         _text(screen, small,
               f"CORPORATION  /  MAP: {self._map_label.upper()}",
               (64, 48), _RED)
-        _text(screen, small, f"TURN  {frame_index:02d}", (width - 155, 27),
-              _WHITE)
+        _text(screen, small, f"TURN  {frame_index:02d}", (width - 30, 27),
+              _WHITE, right=True)
         summary = (
             f"{delivered} of {len(states)} drones delivered   ·   "
             f"{underway} still travelling   ·   {transit} on restricted links"
         )
-        _text(screen, small, summary, (width - 370, 54), _MUTED)
+        _text(screen, small, summary, (width - 30, 54), _MUTED, right=True)
         pygame.draw.line(screen, _GRID, (30, 82), (width - 30, 82), 1)
 
         map_left, map_top = 30, 108
@@ -401,7 +401,7 @@ class PygameVisualizer:
             start = positions[connection.zone_a]
             end = positions[connection.zone_b]
             pygame.draw.line(
-                screen, (91, 91, 83),
+                screen, (39, 87, 105),
                 tuple(round(value) for value in start),
                 tuple(round(value) for value in end), 2,
             )
@@ -513,6 +513,7 @@ def _text(
     color: tuple[int, int, int],
     *,
     center: bool = False,
+    right: bool = False,
 ) -> None:
     """Render text at a top-left point or centered on a point.
 
@@ -523,11 +524,14 @@ def _text(
         point: Pixel coordinates for placement.
         color: RGB text color.
         center: Whether ``point`` is the text center instead of its top-left.
+        right: Whether ``point`` is the text's top-right corner.
     """
     surface = font.render(value, True, color)
     rect = surface.get_rect()
     if center:
         rect.center = (round(point[0]), round(point[1]))
+    elif right:
+        rect.topright = (round(point[0]), round(point[1]))
     else:
         rect.topleft = (round(point[0]), round(point[1]))
     screen.blit(surface, rect)

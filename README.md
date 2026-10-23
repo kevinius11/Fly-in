@@ -14,6 +14,22 @@
 - **Mapas extensibles:** un formato de texto sencillo permite declarar zonas, conexiones, capacidades, tipos y colores.
 - **Dos formas de observar la ejecución:** una animación con Pygame y un panel interactivo en terminal hacen visibles rutas, congestión, capacidades y eventos.
 
+## Capturas de la simulación
+
+Estas imágenes salen de fotogramas reales del motor al ejecutar `03_priority_puzzle.txt`: muestran la flota en movimiento, un dron cruzando una zona restringida y la llegada. La interfaz usa una paleta de neón y el entorno visual de Arasaka, inspirado en *Cyberpunk 2077*, uno de mis juegos favoritos.
+
+![Flota de drones avanzando por el mapa Priority Puzzle](assets/screenshots/01-fleet-in-motion.png)
+
+![Dron en tránsito por una conexión restringida](assets/screenshots/02-restricted-transit.png)
+
+![Estado final de la simulación tras la llegada](assets/screenshots/03-arrival.png)
+
+Para volver a generar las capturas desde el historial del motor:
+
+```sh
+.venv/bin/python scripts/capture_screenshots.py
+```
+
 ## Arquitectura
 
 El diseño separa el formato del mapa, el dominio de la planificación y la presentación. El motor ejecuta las decisiones del scheduler y registra estados que consumen ambas visualizaciones.
