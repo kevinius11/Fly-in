@@ -24,11 +24,6 @@ Estas son capturas reales tomadas durante distintas ejecuciones de la simulació
 
 ![Flota de drones avanzando por una red con cuellos de botella](assets/screenshots/03-arrival.png)
 
-Para volver a generar las capturas desde el historial del motor:
-
-```sh
-.venv/bin/python scripts/capture_screenshots.py
-```
 
 ## Arquitectura
 
